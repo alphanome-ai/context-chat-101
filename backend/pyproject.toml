@@ -8,4 +8,5 @@ dependencies = [
     "fastapi[standard]>=0.136.1",
     "mem0ai>=2.0.2",
     "openai>=2.36.0",
+    "sqlalchemy>=2.0.0",
 ]

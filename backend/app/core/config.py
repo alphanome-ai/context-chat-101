@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default_factory=list)
     trusted_hosts: list[str] = Field(default_factory=lambda: ["*"])
 
+    database_url: str = "sqlite:///./context_chat.db"
+    auth_session_days: int = 30
+
     llm_provider_name: str = "Default LLM"
     llm_base_url: str = ""
     llm_api_key: str = ""

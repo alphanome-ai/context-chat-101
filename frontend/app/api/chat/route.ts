@@ -1,4 +1,4 @@
-const DEFAULT_BACKEND_URL = "http://127.0.0.1:8000";
+import { getBackendUrl } from "../_backend";
 
 type ChatMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -10,11 +10,6 @@ type ChatRequestBody = {
   model?: string;
   temperature?: number;
 };
-
-function getBackendUrl(pathname: string) {
-  const baseUrl = process.env.BACKEND_API_URL ?? DEFAULT_BACKEND_URL;
-  return new URL(pathname, baseUrl).toString();
-}
 
 export async function POST(request: Request) {
   let body: ChatRequestBody;

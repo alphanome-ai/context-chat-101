@@ -40,6 +40,7 @@ dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "mem0ai" },
     { name = "openai" },
+    { name = "sqlalchemy" },
 ]
 
 [package.metadata]
@@ -47,6 +48,7 @@ requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.136.1" },
     { name = "mem0ai", specifier = ">=2.0.2" },
     { name = "openai", specifier = ">=2.36.0" },
+    { name = "sqlalchemy", specifier = ">=2.0.0" },
 ]
 
 [[package]]

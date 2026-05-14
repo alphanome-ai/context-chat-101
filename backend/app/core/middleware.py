@@ -30,19 +30,15 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             process_time_ms = (time.perf_counter() - started_at) * 1000
             response.headers["X-Request-ID"] = request_id
             response.headers["X-Process-Time-Ms"] = f"{process_time_ms:.2f}"
-
             logger.info(
-                "request_complete",
-                extra={
-                    "method": request.method,
-                    "path": request.url.path,
-                    "status_code": response.status_code,
-                    "process_time_ms": round(process_time_ms, 2),
-                },
+                "%s %s -> %s %.2fms",
+                request.method,
+                request.url.path,
+                response.status_code,
+                process_time_ms,
             )
             return response
         finally:
             traceparent_ctx_var.reset(traceparent_token)
             trace_id_ctx_var.reset(trace_id_token)
             request_id_ctx_var.reset(request_id_token)
-

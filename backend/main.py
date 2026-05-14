@@ -13,6 +13,7 @@ from app.api.root import router as root_router
 from app.core.config import get_settings
 from app.core.logging import get_app_logger, setup_logging
 from app.core.middleware import RequestContextMiddleware
+from app.db.session import init_db
 
 logger = get_app_logger()
 
@@ -21,6 +22,7 @@ logger = get_app_logger()
 async def lifespan(application: FastAPI):
     setup_logging()
     logger.info("application_starting")
+    init_db()
     yield
     logger.info("application_stopping")
 
@@ -60,10 +62,6 @@ def create_app() -> FastAPI:
     async def _request_validation_exception_handler(
         request: Request, exc: RequestValidationError
     ) -> JSONResponse:
-        logger.info(
-            "request_validation_error",
-            extra={"method": request.method, "path": request.url.path},
-        )
         return JSONResponse(status_code=422, content=jsonable_encoder({"detail": exc.errors()}))
 
     @application.exception_handler(Exception)

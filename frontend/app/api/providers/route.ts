@@ -1,9 +1,4 @@
-const DEFAULT_BACKEND_URL = "http://127.0.0.1:8000";
-
-function getBackendUrl(pathname: string) {
-  const baseUrl = process.env.BACKEND_API_URL ?? DEFAULT_BACKEND_URL;
-  return new URL(pathname, baseUrl).toString();
-}
+import { getBackendUrl } from "../_backend";
 
 export async function GET() {
   const upstreamResponse = await fetch(getBackendUrl("/api/v1/llm/providers"), {
