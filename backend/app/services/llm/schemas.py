@@ -171,7 +171,12 @@ class Usage(BaseModel):
 class AssistantMessage(BaseModel):
     role: Literal["assistant"] = "assistant"
     content: str | None = None
+    reasoning: str | None = None
+    reasoning_content: str | None = Field(None, alias="reasoningContent")
+    thinking: str | None = None
     tool_calls: list[ToolCall] | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class Choice(BaseModel):
@@ -192,7 +197,12 @@ class ChatCompletionResponse(BaseModel):
 class DeltaContent(BaseModel):
     role: str | None = None
     content: str | None = None
+    reasoning: str | None = None
+    reasoning_content: str | None = Field(None, alias="reasoningContent")
+    thinking: str | None = None
     tool_calls: list[dict[str, Any]] | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class StreamChoice(BaseModel):

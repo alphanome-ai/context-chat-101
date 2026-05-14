@@ -84,6 +84,39 @@ class OpenAICompatibleProvider:
 
         return payload
 
+    def _get_extra_text(self, value: Any, field_names: tuple[str, ...]) -> str | None:
+        for field_name in field_names:
+            field_value = getattr(value, field_name, None)
+            if isinstance(field_value, str) and field_value.strip():
+                return field_value
+
+        if hasattr(value, "model_dump"):
+            dumped = value.model_dump()
+            for field_name in field_names:
+                field_value = dumped.get(field_name)
+                if isinstance(field_value, str) and field_value.strip():
+                    return field_value
+
+        model_extra = getattr(value, "model_extra", None)
+        if isinstance(model_extra, dict):
+            for field_name in field_names:
+                field_value = model_extra.get(field_name)
+                if isinstance(field_value, str) and field_value.strip():
+                    return field_value
+
+        return None
+
+    def _get_reasoning(self, value: Any) -> str | None:
+        return self._get_extra_text(
+            value,
+            (
+                "reasoning",
+                "reasoning_content",
+                "reasoningContent",
+                "thinking",
+            ),
+        )
+
     def _raise_api_status_error(self, exc: openai.APIStatusError) -> None:
         raw = getattr(exc, "body", None)
         if exc.status_code == 400:
@@ -167,6 +200,7 @@ class OpenAICompatibleProvider:
                     index=choice.index,
                     message=AssistantMessage(
                         content=choice.message.content,
+                        reasoning=self._get_reasoning(choice.message),
                         tool_calls=tool_calls,
                     ),
                     finish_reason=choice.finish_reason,
@@ -240,6 +274,7 @@ class OpenAICompatibleProvider:
                             delta=DeltaContent(
                                 role=choice.delta.role,
                                 content=choice.delta.content,
+                                reasoning=self._get_reasoning(choice.delta),
                                 tool_calls=delta_tool_calls,
                             ),
                             finish_reason=choice.finish_reason,
