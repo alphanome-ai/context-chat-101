@@ -1,7 +1,7 @@
-import { getBackendUrl } from "../_backend";
+import { fetchBackend } from "../_backend";
 
 export async function GET() {
-  const upstreamResponse = await fetch(getBackendUrl("/api/v1/llm/providers"), {
+  const upstreamResponse = await fetchBackend("/api/v1/llm/providers", {
     cache: "no-store",
   });
   const responseBody = await upstreamResponse.text();

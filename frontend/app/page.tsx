@@ -188,6 +188,24 @@ function parseErrorResponse(payload: unknown): AuthResponse {
   return errorResponseSchema.safeParse(payload).data ?? {};
 }
 
+async function readJsonResponse(response: Response): Promise<unknown> {
+  const responseBody = await response.text();
+
+  if (!responseBody.trim()) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(responseBody) as unknown;
+  } catch {
+    return {
+      error: {
+        message: responseBody,
+      },
+    };
+  }
+}
+
 function getThinkingText(message?: AssistantResponseMessage) {
   if (!message || typeof message !== "object") {
     return "";
@@ -430,7 +448,7 @@ export default function Home() {
     async function loadProvider() {
       try {
         const response = await fetch("/api/providers");
-        const rawData: unknown = await response.json();
+        const rawData = await readJsonResponse(response);
         const data = providersResponseSchema.parse(rawData);
         const nextOptions =
           data.providers?.flatMap((providerItem) =>
@@ -531,7 +549,7 @@ export default function Home() {
       const response = await fetch("/api/chat-sessions", {
         headers: getAuthHeaders(token),
       });
-      const rawData: unknown = await response.json();
+      const rawData = await readJsonResponse(response);
 
       if (!response.ok) {
         throw new Error(
@@ -556,7 +574,7 @@ export default function Home() {
       const response = await fetch("/api/auth/me", {
         headers: getAuthHeaders(token),
       });
-      const rawData: unknown = await response.json();
+      const rawData = await readJsonResponse(response);
 
       if (!response.ok) {
         throw new Error(
@@ -632,7 +650,7 @@ export default function Home() {
       },
       body: JSON.stringify(payload),
     });
-    const rawData: unknown = await response.json();
+    const rawData = await readJsonResponse(response);
 
     if (!response.ok) {
       throw new Error(
@@ -679,9 +697,7 @@ export default function Home() {
       const contentType = response.headers.get("Content-Type") ?? "";
 
       if (!response.ok) {
-        const rawData: unknown = contentType.includes("application/json")
-          ? await response.json()
-          : { error: { message: await response.text() } };
+        const rawData = await readJsonResponse(response);
         throw new Error(
           getApiErrorMessage(
             parseErrorResponse(rawData),
@@ -715,7 +731,7 @@ export default function Home() {
         assistantContent = streamedMessage.content;
         thinking = streamedMessage.thinking ?? "";
       } else {
-        const rawData: unknown = await response.json();
+        const rawData = await readJsonResponse(response);
         const data = chatCompletionResponseSchema.parse(rawData);
         const assistantMessage = data.choices?.[0]?.message;
         const { content: fullContent, thinking: taggedThinking } =
@@ -784,7 +800,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
       });
-      const rawData: unknown = await response.json();
+      const rawData = await readJsonResponse(response);
 
       if (!response.ok) {
         throw new Error(
@@ -823,7 +839,7 @@ export default function Home() {
       const response = await fetch(`/api/chat-sessions/${sessionId}`, {
         headers: getAuthHeaders(),
       });
-      const rawData: unknown = await response.json();
+      const rawData = await readJsonResponse(response);
 
       if (!response.ok) {
         throw new Error(

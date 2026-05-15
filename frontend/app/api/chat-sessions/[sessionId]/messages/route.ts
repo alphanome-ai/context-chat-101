@@ -1,4 +1,4 @@
-import { getAuthHeaders, getBackendUrl, proxyResponse } from "../../../_backend";
+import { fetchBackend, getAuthHeaders, proxyResponse } from "../../../_backend";
 
 type RouteContext = {
   params: Promise<{
@@ -8,8 +8,8 @@ type RouteContext = {
 
 export async function POST(request: Request, context: RouteContext) {
   const { sessionId } = await context.params;
-  const upstreamResponse = await fetch(
-    getBackendUrl(`/api/v1/chat-sessions/${sessionId}/messages`),
+  const upstreamResponse = await fetchBackend(
+    `/api/v1/chat-sessions/${sessionId}/messages`,
     {
       method: "POST",
       headers: {

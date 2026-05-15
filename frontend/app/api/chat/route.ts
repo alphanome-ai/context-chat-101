@@ -1,4 +1,4 @@
-import { getBackendUrl } from "../_backend";
+import { fetchBackend } from "../_backend";
 
 type ChatMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -30,20 +30,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const upstreamResponse = await fetch(
-    getBackendUrl("/api/v1/llm/inference/request"),
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: body.model ?? "default",
-        messages: body.messages,
-        stream: true,
-        temperature: body.temperature ?? 0.2,
-      }),
-      cache: "no-store",
-    },
-  );
+  const upstreamResponse = await fetchBackend("/api/v1/llm/inference/request", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: body.model ?? "default",
+      messages: body.messages,
+      stream: true,
+      temperature: body.temperature ?? 0.2,
+    }),
+    cache: "no-store",
+  });
 
   const contentType = upstreamResponse.headers.get("Content-Type") ?? "application/json";
 
