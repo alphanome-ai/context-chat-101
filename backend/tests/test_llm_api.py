@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.core.llm.base import BaseChatModel
+from app.core.llm.errors import LLMModelError
 from app.core.llm.registry import LLMRegistry, ModelDefinition, ProviderDefinition
 from app.core.llm.schemas import (
     AssistantMessage,
@@ -50,6 +51,19 @@ class FakeChatModel(BaseChatModel):
         return _iterator()
 
 
+class StreamErrorChatModel(FakeChatModel):
+    def stream(self, request: InferenceRequest) -> AsyncIterator[ChatCompletionChunk]:
+        async def _iterator() -> AsyncIterator[ChatCompletionChunk]:
+            raise LLMModelError(
+                "Upstream streaming failed",
+                error_code="UPSTREAM_ERROR",
+                status_code=502,
+            )
+            yield
+
+        return _iterator()
+
+
 def make_test_client() -> TestClient:
     app = FastAPI()
     app.include_router(router)
@@ -68,11 +82,13 @@ def make_registry() -> LLMRegistry:
                     ModelDefinition(
                         id="fake-default",
                         name="Fake Default",
+                        display_name="Fake Default Display",
                         model_cls=FakeChatModel,
                     ),
                     ModelDefinition(
                         id="fake-other",
                         name="Fake Other",
+                        display_name="Fake Other Display",
                         model_cls=FakeChatModel,
                     ),
                 ),
@@ -101,11 +117,13 @@ class LLMApiTests(unittest.TestCase):
                             {
                                 "id": "fake-default",
                                 "name": "Fake Default",
+                                "displayName": "Fake Default Display",
                                 "isDefault": True,
                             },
                             {
                                 "id": "fake-other",
                                 "name": "Fake Other",
+                                "displayName": "Fake Other Display",
                                 "isDefault": False,
                             },
                         ],
@@ -171,6 +189,38 @@ class LLMApiTests(unittest.TestCase):
         self.assertIn("data: ", body)
         self.assertIn('"model":"fake-other"', body)
         self.assertIn('"content":"streamed:fake-other"', body)
+        self.assertTrue(body.endswith("data: [DONE]\n\n"))
+
+    def test_streaming_completion_wraps_stream_errors_as_sse(self) -> None:
+        client = make_test_client()
+        registry = LLMRegistry(
+            (
+                ProviderDefinition(
+                    id="fake",
+                    name="Fake Provider",
+                    type="fake",
+                    default_model="fake-error",
+                    models=(ModelDefinition(id="fake-error", model_cls=StreamErrorChatModel),),
+                ),
+            )
+        )
+
+        with patch("app.services.llm.api.v1.get_llm_registry", return_value=registry):
+            with client.stream(
+                "POST",
+                "/inference/request",
+                json={
+                    "model": "fake-error",
+                    "messages": [{"role": "user", "content": "hello"}],
+                    "stream": True,
+                },
+            ) as response:
+                body = response.read().decode()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('"error":', body)
+        self.assertIn('"message":"Upstream streaming failed"', body)
+        self.assertIn('"code":"UPSTREAM_ERROR"', body)
         self.assertTrue(body.endswith("data: [DONE]\n\n"))
 
 

@@ -1,6 +1,6 @@
 from collections.abc import AsyncIterator
 from time import time
-from typing import Any
+from typing import Any, NoReturn
 
 import openai
 from openai import AsyncOpenAI
@@ -104,7 +104,7 @@ class OpenAIModelAdapter(BaseChatModel):
             ),
         )
 
-    def _raise_api_status_error(self, exc: openai.APIStatusError) -> None:
+    def _raise_api_status_error(self, exc: openai.APIStatusError) -> NoReturn:
         raw = getattr(exc, "body", None)
         if exc.status_code == 400:
             code, status_code = "INVALID_REQUEST", 400
@@ -126,7 +126,7 @@ class OpenAIModelAdapter(BaseChatModel):
             raw=raw,
         ) from exc
 
-    def _raise_model_error(self, exc: Exception, *, model: str, streaming: bool) -> None:
+    def _raise_model_error(self, exc: Exception, *, model: str, streaming: bool) -> NoReturn:
         prefix = "llm_stream" if streaming else "llm"
         if isinstance(exc, openai.RateLimitError):
             logger.warning(f"{prefix}_rate_limited", extra={"model": model, "error": str(exc)})
@@ -539,9 +539,17 @@ class GPT52ChatModel(OpenAIChatCompletionsModel):
     unsupported_payload_fields = frozenset({"temperature"})
 
 
+class GPT55Model(OpenAIResponsesModel):
+    unsupported_payload_fields = frozenset({"temperature"})
+
+
 class GPT53CodexModel(OpenAIResponsesModel):
     unsupported_payload_fields = frozenset({"temperature", "top_p"})
 
 
 class GPT52Model(OpenAIChatCompletionsModel):
+    pass
+
+
+class KimiK26Model(OpenAIChatCompletionsModel):
     pass

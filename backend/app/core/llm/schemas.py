@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 class LLMModel(BaseModel):
     id: str
     name: str | None = None
+    display_name: str | None = Field(None, alias="displayName")
     is_default: bool = Field(False, alias="isDefault")
 
     model_config = ConfigDict(populate_by_name=True)

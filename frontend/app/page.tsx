@@ -67,6 +67,7 @@ const authResponseSchema = z.object({
 const llmModelSchema = z.object({
   id: z.string(),
   name: z.string().nullable().optional(),
+  displayName: z.string().nullable().optional(),
   isDefault: z.boolean().optional(),
 });
 
@@ -454,7 +455,7 @@ export default function Home() {
           data.providers?.flatMap((providerItem) =>
             providerItem.models.map((model) => ({
               id: model.id,
-              label: model.name ?? model.id,
+              label: model.displayName ?? model.name,
               providerName: providerItem.name,
               isDefault: model.isDefault,
             })),

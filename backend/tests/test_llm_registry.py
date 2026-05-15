@@ -71,11 +71,13 @@ def make_provider(
             ModelDefinition(
                 id="fake-default",
                 name="Fake Default",
+                display_name="Fake Default Display",
                 model_cls=FakeChatModel,
             ),
             ModelDefinition(
                 id="fake-other",
                 name="Fake Other",
+                display_name="Fake Other Display",
                 model_cls=FakeChatModel,
             ),
         ),
@@ -101,11 +103,13 @@ class LLMRegistryTests(unittest.TestCase):
                             {
                                 "id": "fake-default",
                                 "name": "Fake Default",
+                                "displayName": "Fake Default Display",
                                 "isDefault": True,
                             },
                             {
                                 "id": "fake-other",
                                 "name": "Fake Other",
+                                "displayName": "Fake Other Display",
                                 "isDefault": False,
                             },
                         ],
@@ -187,11 +191,26 @@ class LLMRegistryTests(unittest.TestCase):
         self.assertEqual(error.exception.error_code, "CONFIGURATION_ERROR")
         self.assertIn("Duplicate LLM model id", error.exception.message)
 
+    def test_default_registry_routes_gpt_55_through_responses_adapter(self) -> None:
+        provider = DEFAULT_PROVIDERS[0]
+        model_classes = {model.id: model.model_cls.__name__ for model in provider.models}
+
+        self.assertEqual(model_classes["gpt-5.5"], "GPT55Model")
+
     def test_default_registry_routes_codex_model_through_responses_adapter(self) -> None:
         provider = DEFAULT_PROVIDERS[0]
         model_classes = {model.id: model.model_cls.__name__ for model in provider.models}
 
         self.assertEqual(model_classes["gpt-5.3-codex"], "GPT53CodexModel")
+
+    def test_default_registry_routes_kimi_through_responses_adapter(self) -> None:
+        model_classes = {
+            model.id: model.model_cls.__name__
+            for provider in DEFAULT_PROVIDERS
+            for model in provider.models
+        }
+
+        self.assertEqual(model_classes["kimi-k2.6"], "KimiK26Model")
 
 
 if __name__ == "__main__":

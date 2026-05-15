@@ -52,8 +52,18 @@ async def inference_request(request: InferenceRequest):
 
 
 async def _sse_iterator(chunks: AsyncIterator[ChatCompletionChunk]) -> AsyncIterator[bytes]:
-    async for chunk in chunks:
-        yield f"data: {chunk.model_dump_json(exclude_none=True)}\n\n".encode()
+    try:
+        async for chunk in chunks:
+            yield f"data: {chunk.model_dump_json(exclude_none=True)}\n\n".encode()
+    except LLMModelError as exc:
+        error = ErrorResponse(
+            error=ErrorDetail(
+                message=exc.message,
+                code=exc.error_code,
+                metadata=ErrorMetadata(raw=exc.raw) if exc.raw is not None else None,
+            )
+        )
+        yield f"data: {error.model_dump_json(exclude_none=True)}\n\n".encode()
     yield b"data: [DONE]\n\n"
 
 

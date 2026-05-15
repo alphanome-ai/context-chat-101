@@ -4,7 +4,13 @@ from functools import lru_cache
 
 from app.core.llm.base import BaseChatModel, ChatModelProtocol
 from app.core.llm.errors import LLMModelError
-from app.core.llm.openai_model import GPT52ChatModel, GPT52Model, GPT53CodexModel
+from app.core.llm.openai_model import (
+    GPT52ChatModel,
+    GPT52Model,
+    GPT53CodexModel,
+    GPT55Model,
+    KimiK26Model,
+)
 from app.core.llm.schemas import LLMModel, LLMProviderInfo, ProvidersResponse
 
 
@@ -13,6 +19,7 @@ class ModelDefinition:
     id: str
     model_cls: type[BaseChatModel]
     name: str | None = None
+    display_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -100,6 +107,7 @@ class LLMRegistry:
                     LLMModel(
                         id=model.id,
                         name=model.name,
+                        displayName=model.display_name or model.name,
                         isDefault=model.id == provider.default_model,
                     )
                     for model in provider.models
@@ -160,9 +168,39 @@ DEFAULT_PROVIDERS: tuple[ProviderDefinition, ...] = (
         type="openai-compatible",
         default_model="gpt-5.2-chat",
         models=(
-            ModelDefinition(id="gpt-5.2-chat", model_cls=GPT52ChatModel),
-            ModelDefinition(id="gpt-5.3-codex", model_cls=GPT53CodexModel),
-            ModelDefinition(id="gpt-5.2", model_cls=GPT52Model),
+            ModelDefinition(
+                id="gpt-5.2-chat",
+                display_name="GPT-5.2 Chat",
+                model_cls=GPT52ChatModel,
+            ),
+            ModelDefinition(
+                id="gpt-5.5-1",
+                display_name="GPT-5.5",
+                model_cls=GPT55Model,
+            ),
+            ModelDefinition(
+                id="gpt-5.3-codex",
+                display_name="GPT-5.3 Codex",
+                model_cls=GPT53CodexModel,
+            ),
+            ModelDefinition(
+                id="gpt-5.2",
+                display_name="GPT-5.2",
+                model_cls=GPT52Model,
+            ),
+        ),
+    ),
+    ProviderDefinition(
+        id="moonshot",
+        name="Moonshot AI",
+        type="openai-compatible",
+        default_model="kimi-k2.6",
+        models=(
+            ModelDefinition(
+                id="kimi-k2.6",
+                display_name="Kimi K2.6",
+                model_cls=KimiK26Model,
+            ),
         ),
     ),
 )
