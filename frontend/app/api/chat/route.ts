@@ -31,27 +31,38 @@ export async function POST(request: Request) {
   }
 
   const upstreamResponse = await fetch(
-    getBackendUrl("/api/v1/llm/chat/completion"),
+    getBackendUrl("/api/v1/llm/inference/request"),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: body.model ?? "default",
         messages: body.messages,
-        stream: false,
+        stream: true,
         temperature: body.temperature ?? 0.2,
       }),
       cache: "no-store",
     },
   );
 
+  const contentType = upstreamResponse.headers.get("Content-Type") ?? "application/json";
+
+  if (contentType.includes("text/event-stream")) {
+    return new Response(upstreamResponse.body, {
+      status: upstreamResponse.status,
+      headers: {
+        "Cache-Control": "no-cache",
+        "Content-Type": contentType,
+      },
+    });
+  }
+
   const responseBody = await upstreamResponse.text();
 
   return new Response(responseBody, {
     status: upstreamResponse.status,
     headers: {
-      "Content-Type":
-        upstreamResponse.headers.get("Content-Type") ?? "application/json",
+      "Content-Type": contentType,
     },
   });
 }

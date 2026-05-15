@@ -15,7 +15,7 @@ type Message = {
   role: "user" | "assistant";
   content: string;
   thinking?: string;
-  status?: "pending" | "error";
+  status?: "pending" | "streaming" | "error";
 };
 
 type ApiMessage = {
@@ -93,6 +93,17 @@ const chatCompletionResponseSchema = z.object({
   error: z.object({ message: z.string().optional() }).optional(),
 });
 
+const chatCompletionChunkSchema = z.object({
+  choices: z
+    .array(
+      z.object({
+        delta: assistantResponseMessageSchema.optional(),
+      }),
+    )
+    .optional(),
+  error: z.object({ message: z.string().optional() }).optional(),
+});
+
 const chatSessionSummarySchema = z.object({
   id: z.number(),
   title: z.string(),
@@ -124,6 +135,7 @@ const storedChatSessionSchema = chatSessionDetailSchema.extend({
 const chatSessionSummariesSchema = z.array(chatSessionSummarySchema);
 
 type AssistantResponseMessage = z.infer<typeof assistantResponseMessageSchema>;
+type AssistantStreamChunk = z.infer<typeof chatCompletionChunkSchema>;
 type User = z.infer<typeof userSchema>;
 type AuthResponse = z.infer<typeof errorResponseSchema>;
 type ChatSessionSummary = z.infer<typeof chatSessionSummarySchema>;
@@ -194,6 +206,111 @@ function splitTaggedThinking(content: string) {
   return {
     content: content.replace(match[0], "").trim(),
     thinking: match[1].trim(),
+  };
+}
+
+function extractAssistantChunk(chunk: AssistantStreamChunk) {
+  let content = "";
+  let thinking = "";
+
+  for (const choice of chunk.choices ?? []) {
+    const delta = choice.delta;
+    if (!delta) {
+      continue;
+    }
+
+    content += delta.content ?? "";
+    thinking += getThinkingText(delta) ?? "";
+  }
+
+  return { content, thinking };
+}
+
+async function readStreamingAssistantResponse(
+  response: Response,
+  onUpdate: (message: { content: string; thinking?: string }) => void,
+) {
+  if (!response.body) {
+    throw new Error("The backend did not return a response stream.");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let rawContent = "";
+  let rawThinking = "";
+  let isDone = false;
+
+  function applyContentUpdate() {
+    const { content, thinking: taggedThinking } = splitTaggedThinking(rawContent);
+    const thinking = [rawThinking.trim(), taggedThinking].filter(Boolean).join("\n\n");
+
+    onUpdate({
+      content: content || (thinking ? "" : "Thinking"),
+      thinking: thinking || undefined,
+    });
+  }
+
+  function processFrame(frame: string) {
+    const data = frame
+      .split("\n")
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).trimStart())
+      .join("\n")
+      .trim();
+
+    if (!data) {
+      return;
+    }
+
+    if (data === "[DONE]") {
+      isDone = true;
+      return;
+    }
+
+    const parsed: unknown = JSON.parse(data);
+    const chunk = chatCompletionChunkSchema.parse(parsed);
+
+    if (chunk.error?.message) {
+      throw new Error(chunk.error.message);
+    }
+
+    const nextDelta = extractAssistantChunk(chunk);
+    if (!nextDelta.content && !nextDelta.thinking) {
+      return;
+    }
+
+    rawContent += nextDelta.content;
+    rawThinking += nextDelta.thinking;
+    applyContentUpdate();
+  }
+
+  while (!isDone) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+
+    let boundaryIndex = buffer.indexOf("\n\n");
+    while (boundaryIndex !== -1) {
+      const frame = buffer.slice(0, boundaryIndex);
+      buffer = buffer.slice(boundaryIndex + 2);
+      processFrame(frame);
+      boundaryIndex = buffer.indexOf("\n\n");
+    }
+
+    if (done) {
+      if (buffer.trim()) {
+        processFrame(buffer);
+      }
+      break;
+    }
+  }
+
+  const { content, thinking: taggedThinking } = splitTaggedThinking(rawContent);
+  const thinking = [rawThinking.trim(), taggedThinking].filter(Boolean).join("\n\n");
+
+  return {
+    content: content.trim(),
+    thinking: thinking || undefined,
   };
 }
 
@@ -518,9 +635,12 @@ export default function Home() {
           model: selectedModel || undefined,
         }),
       });
-      const rawData: unknown = await response.json();
+      const contentType = response.headers.get("Content-Type") ?? "";
 
       if (!response.ok) {
+        const rawData: unknown = contentType.includes("application/json")
+          ? await response.json()
+          : { error: { message: await response.text() } };
         throw new Error(
           getApiErrorMessage(
             parseErrorResponse(rawData),
@@ -529,16 +649,41 @@ export default function Home() {
         );
       }
 
-      const data = chatCompletionResponseSchema.parse(rawData);
-      const assistantMessage = data.choices?.[0]?.message;
-      const { content: assistantContent, thinking: taggedThinking } =
-        splitTaggedThinking(assistantMessage?.content ?? "");
-      const thinking = [getThinkingText(assistantMessage), taggedThinking]
-        .filter(Boolean)
-        .join("\n\n");
+      let assistantContent = "";
+      let thinking = "";
 
-      if (!assistantContent && !thinking) {
-        throw new Error("The assistant response was empty.");
+      if (contentType.includes("text/event-stream")) {
+        const streamedMessage = await readStreamingAssistantResponse(
+          response,
+          (nextMessage) => {
+            setMessages((current) =>
+              current.map((message) =>
+                message.id === pendingMessage.id
+                  ? {
+                      ...message,
+                      content: nextMessage.content,
+                      thinking: nextMessage.thinking,
+                      status: "streaming",
+                    }
+                  : message,
+              ),
+            );
+          },
+        );
+
+        assistantContent = streamedMessage.content;
+        thinking = streamedMessage.thinking ?? "";
+      } else {
+        const rawData: unknown = await response.json();
+        const data = chatCompletionResponseSchema.parse(rawData);
+        const assistantMessage = data.choices?.[0]?.message;
+        const { content: fullContent, thinking: taggedThinking } =
+          splitTaggedThinking(assistantMessage?.content ?? "");
+
+        assistantContent = fullContent;
+        thinking = [getThinkingText(assistantMessage), taggedThinking]
+          .filter(Boolean)
+          .join("\n\n");
       }
 
       const assistantMessageForHistory: Message = {
@@ -898,7 +1043,12 @@ export default function Home() {
                       </details>
                     ) : null}
                     {message.status !== "pending" ? (
-                      <div className="message-text">{message.content}</div>
+                      <div className="message-text">
+                        {message.content}
+                        {message.status === "streaming" ? (
+                          <span className="streaming-cursor" aria-hidden="true" />
+                        ) : null}
+                      </div>
                     ) : null}
                   </article>
                 ))}

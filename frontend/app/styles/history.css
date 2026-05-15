@@ -1,0 +1,82 @@
+.chat-workspace {
+  display: grid;
+  height: calc(100svh - 40px);
+  min-height: calc(100svh - 40px);
+  grid-template-columns: 260px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.history-sidebar {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+  overflow: hidden;
+  padding: 14px;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.history-list {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  overscroll-behavior: contain;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.history-list::-webkit-scrollbar {
+  display: none;
+}
+
+.history-item {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-body);
+  cursor: pointer;
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.history-item:hover,
+.history-item.active {
+  border-color: var(--line);
+  background: var(--control-bg);
+}
+
+.history-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-item small,
+.history-empty {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+.history-error {
+  color: var(--message-error-text);
+  font-size: 12px;
+  margin: 0;
+}

@@ -1,0 +1,242 @@
+.composer {
+  display: flex;
+  align-items: center;
+  width: min(100%, 640px);
+  height: 48px;
+  border: 1px solid var(--composer-border);
+  border-radius: 13px;
+  background: var(--composer-bg);
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.04),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.mode-picker,
+.model-picker {
+  display: flex;
+  position: relative;
+  min-width: 0;
+  align-items: center;
+  height: 100%;
+  border-right: 1px solid var(--composer-border);
+}
+
+.mode-picker {
+  flex: 0 1 88px;
+}
+
+.model-picker {
+  flex: 0 1 172px;
+}
+
+.picker-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-body);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0 24px 0 12px;
+}
+
+.picker-trigger-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.picker-label,
+.picker-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 520;
+  line-height: 1;
+}
+
+.picker-value {
+  line-height: 1;
+}
+
+.mode-picker .picker-trigger {
+  font-weight: 620;
+}
+
+.picker-trigger:disabled {
+  cursor: default;
+  color: var(--placeholder);
+  opacity: 1;
+}
+
+.picker-chevron {
+  position: absolute;
+  right: 11px;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.picker-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 8px;
+  z-index: 5;
+  display: flex;
+  width: max-content;
+  min-width: calc(100% - 16px);
+  max-width: min(300px, calc(100vw - 32px));
+  max-height: 230px;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  border: 1px solid var(--composer-border);
+  border-radius: 8px;
+  background: var(--control-bg);
+  padding: 4px;
+  box-shadow: 0 12px 30px rgba(16, 24, 40, 0.16);
+}
+
+.model-menu {
+  min-width: 220px;
+}
+
+.picker-option {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 3px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-body);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.2;
+  padding: 8px 9px;
+  text-align: left;
+}
+
+.picker-option span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-option:hover,
+.picker-option.selected {
+  background: var(--control-hover);
+}
+
+.picker-option small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--input-text);
+  font-size: 12px;
+  letter-spacing: 0;
+  padding: 0 14px 0 23px;
+}
+
+.composer input::placeholder {
+  color: var(--placeholder);
+  opacity: 1;
+}
+
+.composer input:disabled {
+  color: var(--placeholder);
+}
+
+.send-button {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  margin-right: 8px;
+  border-radius: 999px;
+  background: var(--send-bg);
+  color: var(--background);
+  box-shadow: var(--shadow-send);
+  transition:
+    background 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.send-button:not(:disabled):hover {
+  background: var(--send-hover);
+  box-shadow: var(--shadow-send-hover);
+}
+
+.send-button:not(:disabled):active {
+  transform: scale(0.95);
+}
+
+.send-button:disabled {
+  cursor: default;
+  background: var(--send-disabled);
+  box-shadow: none;
+  color: var(--control-bg);
+}
+
+.arrow-up {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  translate: 0 1px;
+  rotate: 0deg;
+}
+
+.arrow-up::before,
+.arrow-up::after {
+  position: absolute;
+  left: 50%;
+  content: "";
+}
+
+.arrow-up::before {
+  top: 2px;
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  border-radius: 1px;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.arrow-up::after {
+  top: 3px;
+  width: 2px;
+  height: 10px;
+  border-radius: 999px;
+  background: currentColor;
+  transform: translateX(-50%);
+}

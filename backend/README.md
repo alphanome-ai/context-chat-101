@@ -14,9 +14,10 @@ Configure `.env`:
 ```bash
 LLM_BASE_URL="https://api.openai.com/v1"
 LLM_API_KEY="..."
-LLM_DEFAULT_MODEL="gpt-4o-mini"
-LLM_AVAILABLE_MODELS="gpt-4o-mini,gpt-4o"
 ```
+
+Available providers and models are defined in the Python LLM registry under
+`app/core/llm`, not in environment variables.
 
 SQLite is used by default at `context_chat.db`.
 
