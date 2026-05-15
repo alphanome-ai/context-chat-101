@@ -26,6 +26,8 @@ type ApiMessage = {
 type ProviderStatus = "checking" | "online" | "offline";
 type Theme = "light" | "dark";
 type AuthMode = "login" | "register";
+type ChatMode = "chat";
+type PickerMenu = "mode" | "model";
 
 type LlmOption = {
   id: string;
@@ -95,6 +97,7 @@ const chatSessionSummarySchema = z.object({
   id: z.number(),
   title: z.string(),
   model: z.string().nullable().optional(),
+  created_at: z.string(),
   updated_at: z.string(),
   message_count: z.number(),
 });
@@ -126,12 +129,15 @@ type AuthResponse = z.infer<typeof errorResponseSchema>;
 type ChatSessionSummary = z.infer<typeof chatSessionSummarySchema>;
 
 const starterPrompts = [
-  "Remember that I prefer concise answers.",
-  "My project is a context-aware chat app.",
-  "What have you learned about me so far?",
+  "Tell me a story?",
+  "How does a space station work?",
+  "Tell me I am awesome, dude, please.",
 ];
 
 const AUTH_TOKEN_KEY = "context-chat-token";
+const chatModeOptions: Array<{ id: ChatMode; label: string }> = [
+  { id: "chat", label: "Chat" },
+];
 
 function createMessageId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -191,6 +197,30 @@ function splitTaggedThinking(content: string) {
   };
 }
 
+function getUtcTimestampValue(timestamp: string) {
+  const trimmedTimestamp = timestamp.trim();
+  const hasTimezone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(trimmedTimestamp);
+
+  return hasTimezone ? trimmedTimestamp : `${trimmedTimestamp}Z`;
+}
+
+function formatLocalHistoryTimestamp(timestamp: string) {
+  const date = new Date(getUtcTimestampValue(timestamp));
+
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown time";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date);
+}
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
@@ -213,13 +243,23 @@ export default function Home() {
     useState<ProviderStatus>("checking");
   const [llmOptions, setLlmOptions] = useState<LlmOption[]>([]);
   const [selectedModel, setSelectedModel] = useState("");
+  const [selectedMode, setSelectedMode] = useState<ChatMode>("chat");
+  const [openPicker, setOpenPicker] = useState<PickerMenu | null>(null);
   const messageListRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLFormElement>(null);
   const hasRestoredClientStateRef = useRef(false);
 
   const canSend = draft.trim().length > 0 && !isSending;
   const hasMessages = messages.length > 0;
   const isDarkMode = theme === "dark";
   const isAuthenticated = Boolean(currentUser && authToken);
+  const selectedModeLabel =
+    chatModeOptions.find((option) => option.id === selectedMode)?.label ?? "Chat";
+  const selectedModelOption = llmOptions.find((option) => option.id === selectedModel);
+  const selectedModelLabel = selectedModelOption
+    ? selectedModelOption.label
+    : "LLM unavailable";
+  const isModelPickerDisabled = isSending || llmOptions.length === 0;
 
   const apiMessages = useMemo<ApiMessage[]>(
     () =>
@@ -289,6 +329,32 @@ export default function Home() {
       behavior: "smooth",
     });
   }, [messages]);
+
+  useEffect(() => {
+    if (!openPicker) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!composerRef.current?.contains(event.target as Node)) {
+        setOpenPicker(null);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpenPicker(null);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openPicker]);
 
   const getAuthHeaders = useCallback((token = authToken): Record<string, string> => {
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -617,10 +683,16 @@ export default function Home() {
     const option = llmOptions.find((item) => item.id === modelId);
 
     setSelectedModel(modelId);
+    setOpenPicker(null);
 
     if (option) {
       setProviderLabel(`${option.providerName} / ${option.id}`);
     }
+  }
+
+  function handleModeChange(mode: ChatMode) {
+    setSelectedMode(mode);
+    setOpenPicker(null);
   }
 
   function toggleTheme() {
@@ -768,6 +840,11 @@ export default function Home() {
                     onClick={() => loadChatSession(session.id)}
                   >
                     <span>{session.title}</span>
+                    <small>
+                      <time dateTime={getUtcTimestampValue(session.updated_at)}>
+                        {formatLocalHistoryTimestamp(session.updated_at)}
+                      </time>
+                    </small>
                     <small>{session.message_count} messages</small>
                   </button>
                 ))
@@ -804,41 +881,125 @@ export default function Home() {
                     }`}
                     key={message.id}
                   >
+                    {message.status === "pending" ? (
+                      <div className="thinking-loader" aria-label="Assistant is thinking">
+                        <span className="thinking-loader-dots" aria-hidden="true">
+                          <span />
+                          <span />
+                          <span />
+                        </span>
+                        <span>{message.content}</span>
+                      </div>
+                    ) : null}
                     {message.role === "assistant" && message.thinking ? (
                       <details className="thinking-panel">
                         <summary>Thinking</summary>
                         <div>{message.thinking}</div>
                       </details>
                     ) : null}
-                    <div className="message-text">{message.content}</div>
+                    {message.status !== "pending" ? (
+                      <div className="message-text">{message.content}</div>
+                    ) : null}
                   </article>
                 ))}
               </div>
             )}
 
-            <form className="composer" onSubmit={handleSubmit}>
-              <label className="model-picker">
-                <span className="sr-only">LLM model</span>
-                <select
-                  aria-label="LLM model"
-                  value={selectedModel}
-                  onChange={(event) => handleModelChange(event.target.value)}
-                  disabled={isSending || llmOptions.length === 0}
+            <form className="composer" onSubmit={handleSubmit} ref={composerRef}>
+              <div className="mode-picker picker">
+                <button
+                  className="picker-trigger"
+                  type="button"
+                  aria-label="Chat mode"
+                  aria-haspopup="listbox"
+                  aria-expanded={openPicker === "mode"}
+                  aria-controls="chat-mode-menu"
+                  onClick={() =>
+                    setOpenPicker((current) =>
+                      current === "mode" ? null : "mode",
+                    )
+                  }
+                  disabled={isSending}
                 >
-                  {llmOptions.length === 0 ? (
-                    <option value="">LLM unavailable</option>
-                  ) : (
-                    llmOptions.map((option) => (
-                      <option
-                        key={`${option.providerName}-${option.id}`}
-                        value={option.id}
+                  <span className="picker-trigger-text">
+                    <span className="picker-label">Mode</span>
+                    <span className="picker-value">{selectedModeLabel}</span>
+                  </span>
+                  <span className="picker-chevron" aria-hidden="true" />
+                </button>
+                {openPicker === "mode" ? (
+                  <div
+                    className="picker-menu"
+                    id="chat-mode-menu"
+                    role="listbox"
+                    aria-label="Chat mode"
+                  >
+                    {chatModeOptions.map((option) => (
+                      <button
+                        className={
+                          option.id === selectedMode
+                            ? "picker-option selected"
+                            : "picker-option"
+                        }
+                        key={option.id}
+                        type="button"
+                        role="option"
+                        aria-selected={option.id === selectedMode}
+                        onClick={() => handleModeChange(option.id)}
                       >
-                        {option.providerName} / {option.label}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </label>
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              <div className="model-picker picker">
+                <button
+                  className="picker-trigger"
+                  type="button"
+                  aria-label="LLM model"
+                  aria-haspopup="listbox"
+                  aria-expanded={openPicker === "model"}
+                  aria-controls="llm-model-menu"
+                  onClick={() =>
+                    setOpenPicker((current) =>
+                      current === "model" ? null : "model",
+                    )
+                  }
+                  disabled={isModelPickerDisabled}
+                >
+                  <span className="picker-trigger-text">
+                    <span className="picker-label">Model</span>
+                    <span className="picker-value">{selectedModelLabel}</span>
+                  </span>
+                  <span className="picker-chevron" aria-hidden="true" />
+                </button>
+                {openPicker === "model" ? (
+                  <div
+                    className="picker-menu model-menu"
+                    id="llm-model-menu"
+                    role="listbox"
+                    aria-label="LLM model"
+                  >
+                    {llmOptions.map((option) => (
+                      <button
+                        className={
+                          option.id === selectedModel
+                            ? "picker-option selected"
+                            : "picker-option"
+                        }
+                        key={`${option.providerName}-${option.id}`}
+                        type="button"
+                        role="option"
+                        aria-selected={option.id === selectedModel}
+                        onClick={() => handleModelChange(option.id)}
+                      >
+                        <span>{option.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
               <input
                 aria-label="Message"
                 placeholder="Type a Message"
@@ -846,7 +1007,12 @@ export default function Home() {
                 onChange={(event) => setDraft(event.target.value)}
                 disabled={isSending}
               />
-              <button type="submit" aria-label="Send message" disabled={!canSend}>
+              <button
+                className="send-button"
+                type="submit"
+                aria-label="Send message"
+                disabled={!canSend}
+              >
                 <span aria-hidden="true" className="arrow-up" />
               </button>
             </form>
