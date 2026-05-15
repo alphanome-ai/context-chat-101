@@ -18,3 +18,7 @@ wheels/
 
 # Virtual environments
 .venv
+
+# others
+.mypy_cache
+.ruff_cache

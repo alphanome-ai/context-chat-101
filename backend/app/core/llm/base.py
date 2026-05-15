@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from typing import Protocol
 
@@ -21,7 +22,7 @@ class ChatModelProtocol(Protocol):
         ...
 
 
-class BaseChatModel:
+class BaseChatModel(ABC):
     def __init__(
         self,
         *,
@@ -45,3 +46,11 @@ class BaseChatModel:
                 status_code=400,
             )
         return self.model_id
+
+    @abstractmethod
+    async def complete(self, request: InferenceRequest) -> ChatCompletionResponse:
+        """Return a complete chat completion response."""
+
+    @abstractmethod
+    def stream(self, request: InferenceRequest) -> AsyncIterator[ChatCompletionChunk]:
+        """Yield chat completion chunks."""

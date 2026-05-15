@@ -116,13 +116,14 @@ class LLMRegistry:
             provider = self._provider_by_id[self._default_provider_id]
             resolved_model = provider.default_model
         else:
-            provider = self._provider_by_model.get(requested_model)
-            if provider is None:
+            resolved_provider = self._provider_by_model.get(requested_model)
+            if resolved_provider is None:
                 raise LLMModelError(
                     f"Unsupported model: {requested_model}",
                     error_code="UNSUPPORTED_MODEL",
                     status_code=400,
                 )
+            provider = resolved_provider
             resolved_model = requested_model
 
         model_definition = self._model_by_id[resolved_model]

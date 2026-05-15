@@ -48,7 +48,11 @@ def _create_auth_response(db: DbSession, user: User) -> AuthResponse:
     )
     db.add(auth_session)
     db.commit()
-    return AuthResponse(token=token, expires_at=expires_at, user=user)
+    return AuthResponse(
+        token=token,
+        expires_at=expires_at,
+        user=UserResponse.model_validate(user),
+    )
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)

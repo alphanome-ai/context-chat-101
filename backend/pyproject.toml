@@ -10,3 +10,11 @@ dependencies = [
     "openai>=2.36.0",
     "sqlalchemy>=2.0.0",
 ]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.1.0",
+    "pytest>=9.0.3",
+    "ruff>=0.15.13",
+    "types-requests>=2.33.0.20260513",
+]
