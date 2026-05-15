@@ -31,6 +31,34 @@ def _output_text(response: Any) -> str | None:
     return "".join(text_parts) or None
 
 
+def _item_type(item: Any) -> str | None:
+    if isinstance(item, dict):
+        value = item.get("type")
+    else:
+        value = getattr(item, "type", None)
+    return value if isinstance(value, str) else None
+
+
+def _field_value(value: Any, field_name: str) -> Any:
+    if isinstance(value, dict):
+        return value.get(field_name)
+    return getattr(value, field_name, None)
+
+
+def _reasoning_summary(response: Any) -> str | None:
+    text_parts: list[str] = []
+    for item in getattr(response, "output", []) or []:
+        if _item_type(item) != "reasoning":
+            continue
+
+        for summary_part in _field_value(item, "summary") or []:
+            text = _field_value(summary_part, "text")
+            if isinstance(text, str):
+                text_parts.append(text)
+
+    return "\n\n".join(text_parts) or None
+
+
 def _finish_reason(response: Any) -> str | None:
     status = getattr(response, "status", None)
     if status == "completed":
@@ -51,6 +79,9 @@ def _usage_to_schema(response: Any) -> Usage | None:
 
 class OpenAIResponsesModel(OpenAIModelAdapter):
     """OpenAI-compatible adapter for models that use the Responses API."""
+
+    reasoning_effort: str | None = None
+    reasoning_summary: str | None = None
 
     def _build_payload(self, request: InferenceRequest, *, stream: bool) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -73,12 +104,25 @@ class OpenAIResponsesModel(OpenAIModelAdapter):
 
         if request.tools:
             payload["tools"] = [self._build_tool(tool) for tool in request.tools]
+        reasoning = self._build_reasoning()
+        if reasoning:
+            payload["reasoning"] = reasoning
         if stream and request.stream_options:
             payload["stream_options"] = {
                 "include_usage": request.stream_options.include_usage,
             }
 
         return payload
+
+    def _build_reasoning(self) -> dict[str, str]:
+        return {
+            key: value
+            for key, value in {
+                "effort": self.reasoning_effort,
+                "summary": self.reasoning_summary,
+            }.items()
+            if value is not None
+        }
 
     def _build_input(self, request: InferenceRequest) -> list[dict[str, Any]]:
         input_items: list[dict[str, Any]] = []
@@ -162,7 +206,10 @@ class OpenAIResponsesModel(OpenAIModelAdapter):
             model=response.model,
             choices=[
                 Choice(
-                    message=AssistantMessage(content=_output_text(response)),
+                    message=AssistantMessage(
+                        content=_output_text(response),
+                        reasoning=_reasoning_summary(response),
+                    ),
                     finish_reason=_finish_reason(response),
                 )
             ],
@@ -180,6 +227,8 @@ class OpenAIResponsesModel(OpenAIModelAdapter):
 
             response_id = f"resp_{int(time())}"
             created = int(time())
+            streamed_reasoning = False
+            streamed_summary_indexes: set[int] = set()
             async for event in response_stream:
                 event_type = getattr(event, "type", None)
                 if event_type == "response.created":
@@ -205,6 +254,48 @@ class OpenAIResponsesModel(OpenAIModelAdapter):
                     )
                     continue
 
+                if event_type == "response.reasoning_summary_text.delta":
+                    streamed_reasoning = True
+                    streamed_summary_indexes.add(getattr(event, "summary_index", 0))
+                    yield ChatCompletionChunk(
+                        id=response_id,
+                        created=created,
+                        model=payload["model"],
+                        choices=[
+                            StreamChoice(
+                                delta=DeltaContent(
+                                    role="assistant",
+                                    reasoning=getattr(event, "delta", ""),
+                                ),
+                                finish_reason=None,
+                            )
+                        ],
+                    )
+                    continue
+
+                if event_type == "response.reasoning_summary_text.done":
+                    summary_index = getattr(event, "summary_index", 0)
+                    if summary_index in streamed_summary_indexes:
+                        continue
+
+                    streamed_reasoning = True
+                    streamed_summary_indexes.add(summary_index)
+                    yield ChatCompletionChunk(
+                        id=response_id,
+                        created=created,
+                        model=payload["model"],
+                        choices=[
+                            StreamChoice(
+                                delta=DeltaContent(
+                                    role="assistant",
+                                    reasoning=getattr(event, "text", ""),
+                                ),
+                                finish_reason=None,
+                            )
+                        ],
+                    )
+                    continue
+
                 if event_type == "response.completed":
                     response = getattr(event, "response", None)
                     if response is not None:
@@ -214,7 +305,13 @@ class OpenAIResponsesModel(OpenAIModelAdapter):
                             model=getattr(response, "model", payload["model"]),
                             choices=[
                                 StreamChoice(
-                                    delta=DeltaContent(),
+                                    delta=DeltaContent(
+                                        reasoning=(
+                                            None
+                                            if streamed_reasoning
+                                            else _reasoning_summary(response)
+                                        )
+                                    ),
                                     finish_reason=_finish_reason(response),
                                 )
                             ],

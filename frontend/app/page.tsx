@@ -1109,7 +1109,11 @@ export default function Home() {
                       {message.role === "assistant" && message.thinking ? (
                         <details className="thinking-panel">
                           <summary>Thinking</summary>
-                          <div>{message.thinking}</div>
+                          <div className="thinking-content markdown-preview">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {message.thinking}
+                            </ReactMarkdown>
+                          </div>
                         </details>
                       ) : null}
                       {message.status !== "pending" ? (

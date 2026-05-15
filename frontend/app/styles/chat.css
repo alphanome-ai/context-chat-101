@@ -73,6 +73,7 @@
 }
 
 .message-bubble {
+  min-width: 0;
   max-width: min(78%, 520px);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -80,6 +81,7 @@
   color: var(--text-body);
   font-size: 14px;
   line-height: 1.55;
+  overflow-wrap: anywhere;
   box-shadow: var(--shadow-soft);
 }
 
@@ -98,8 +100,10 @@
 }
 
 .message-text.plain-text,
-.thinking-panel div {
+.thinking-content {
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .markdown-preview {
@@ -343,6 +347,8 @@
 }
 
 .thinking-panel {
+  max-width: 100%;
+  overflow: hidden;
   margin-bottom: 10px;
   color: var(--thinking-text);
   font-size: 12px;
@@ -357,10 +363,14 @@
   list-style-position: inside;
 }
 
-.thinking-panel div {
+.thinking-content {
   margin-top: 7px;
   border-left: 2px solid var(--composer-border);
   padding-left: 10px;
+}
+
+.thinking-content.markdown-preview {
+  white-space: normal;
 }
 
 .message-bubble.pending {

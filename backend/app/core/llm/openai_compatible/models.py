@@ -8,10 +8,14 @@ class GPT52ChatModel(OpenAIChatCompletionsModel):
 
 class GPT55Model(OpenAIResponsesModel):
     unsupported_payload_fields = frozenset({"temperature"})
+    reasoning_effort = "medium"
+    reasoning_summary = "auto"
 
 
 class GPT53CodexModel(OpenAIResponsesModel):
     unsupported_payload_fields = frozenset({"temperature", "top_p"})
+    reasoning_effort = "medium"
+    reasoning_summary = "auto"
 
 
 class GPT52Model(OpenAIChatCompletionsModel):
