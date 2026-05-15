@@ -47,6 +47,10 @@
     overflow: visible;
   }
 
+  .chat-workspace.with-preview {
+    grid-template-columns: 1fr;
+  }
+
   .history-sidebar {
     max-height: 150px;
     border-right: 0;
@@ -87,5 +91,15 @@
 
   .message-bubble {
     max-width: 88%;
+  }
+
+  .html-preview-panel {
+    min-height: 70svh;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .html-preview-body {
+    grid-template-rows: minmax(240px, 1fr) minmax(180px, 40%);
   }
 }

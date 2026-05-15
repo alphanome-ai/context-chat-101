@@ -6,6 +6,10 @@
   overflow: hidden;
 }
 
+.chat-workspace.with-preview {
+  grid-template-columns: 260px minmax(0, 1fr) minmax(360px, 42vw);
+}
+
 .history-sidebar {
   display: flex;
   min-height: 0;

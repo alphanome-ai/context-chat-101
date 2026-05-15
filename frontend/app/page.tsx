@@ -8,6 +8,8 @@ import {
   useRef,
   useState,
 } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { z } from "zod";
 
 type Message = {
@@ -16,6 +18,11 @@ type Message = {
   content: string;
   thinking?: string;
   status?: "pending" | "streaming" | "error";
+};
+
+type HtmlPreview = {
+  messageId: string;
+  html: string;
 };
 
 type ApiMessage = {
@@ -338,6 +345,18 @@ function formatLocalHistoryTimestamp(timestamp: string) {
   }).format(date);
 }
 
+function extractHtmlPreview(content: string, messageId: string): HtmlPreview | null {
+  const htmlBlockPattern = /```(?:html|htm)\s*\n([\s\S]*?)```/gi;
+  let match: RegExpExecArray | null;
+  let html = "";
+
+  while ((match = htmlBlockPattern.exec(content)) !== null) {
+    html = match[1]?.trim() ?? "";
+  }
+
+  return html ? { messageId, html } : null;
+}
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
@@ -362,6 +381,8 @@ export default function Home() {
   const [selectedModel, setSelectedModel] = useState("");
   const [selectedMode, setSelectedMode] = useState<ChatMode>("chat");
   const [openPicker, setOpenPicker] = useState<PickerMenu | null>(null);
+  const [activeHtmlPreviewMessageId, setActiveHtmlPreviewMessageId] =
+    useState<string | null>(null);
   const messageListRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLFormElement>(null);
   const hasRestoredClientStateRef = useRef(false);
@@ -377,6 +398,20 @@ export default function Home() {
     ? selectedModelOption.label
     : "LLM unavailable";
   const isModelPickerDisabled = isSending || llmOptions.length === 0;
+  const activeHtmlPreview = useMemo(() => {
+    if (!activeHtmlPreviewMessageId) {
+      return null;
+    }
+
+    const message = messages.find(
+      (item) =>
+        item.id === activeHtmlPreviewMessageId &&
+        item.role === "assistant" &&
+        !item.status,
+    );
+
+    return message ? extractHtmlPreview(message.content, message.id) : null;
+  }, [activeHtmlPreviewMessageId, messages]);
 
   const apiMessages = useMemo<ApiMessage[]>(
     () =>
@@ -446,6 +481,12 @@ export default function Home() {
       behavior: "smooth",
     });
   }, [messages]);
+
+  useEffect(() => {
+    if (activeHtmlPreviewMessageId && !activeHtmlPreview) {
+      setActiveHtmlPreviewMessageId(null);
+    }
+  }, [activeHtmlPreview, activeHtmlPreviewMessageId]);
 
   useEffect(() => {
     if (!openPicker) {
@@ -760,6 +801,7 @@ export default function Home() {
       setCurrentUser(data.user);
       setAuthPassword("");
       setMessages([]);
+      setActiveHtmlPreviewMessageId(null);
       setActiveSessionId(null);
       await loadChatSessions(data.token);
     } catch (error) {
@@ -791,6 +833,7 @@ export default function Home() {
 
       const data = storedChatSessionSchema.parse(rawData);
       setActiveSessionId(data.id);
+      setActiveHtmlPreviewMessageId(null);
       setMessages(
         data.messages.map((message) => ({
           id: String(message.id),
@@ -821,6 +864,7 @@ export default function Home() {
     setChatSessions([]);
     setActiveSessionId(null);
     setMessages([]);
+    setActiveHtmlPreviewMessageId(null);
     setDraft("");
   }
 
@@ -852,6 +896,7 @@ export default function Home() {
     setMessages([]);
     setDraft("");
     setActiveSessionId(null);
+    setActiveHtmlPreviewMessageId(null);
   }
 
   if (!isHydrated) {
@@ -962,7 +1007,7 @@ export default function Home() {
           </form>
         </section>
       ) : (
-        <div className="chat-workspace">
+        <div className={`chat-workspace ${activeHtmlPreview ? "with-preview" : ""}`}>
           <aside className="history-sidebar" aria-label="Chat history">
             <div className="history-header">
               <span>History</span>
@@ -1019,39 +1064,76 @@ export default function Home() {
               </div>
             ) : (
               <div className="message-list" aria-live="polite" ref={messageListRef}>
-                {messages.map((message) => (
-                  <article
-                    className={`message-bubble ${message.role} ${
-                      message.status ?? ""
-                    }`}
-                    key={message.id}
-                  >
-                    {message.status === "pending" ? (
-                      <div className="thinking-loader" aria-label="Assistant is thinking">
-                        <span className="thinking-loader-dots" aria-hidden="true">
-                          <span />
-                          <span />
-                          <span />
-                        </span>
-                        <span>{message.content}</span>
-                      </div>
-                    ) : null}
-                    {message.role === "assistant" && message.thinking ? (
-                      <details className="thinking-panel">
-                        <summary>Thinking</summary>
-                        <div>{message.thinking}</div>
-                      </details>
-                    ) : null}
-                    {message.status !== "pending" ? (
-                      <div className="message-text">
-                        {message.content}
-                        {message.status === "streaming" ? (
-                          <span className="streaming-cursor" aria-hidden="true" />
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </article>
-                ))}
+                {messages.map((message) => {
+                  const htmlPreview =
+                    message.role === "assistant" && !message.status
+                      ? extractHtmlPreview(message.content, message.id)
+                      : null;
+                  const isHtmlPreviewOpen =
+                    activeHtmlPreview?.messageId === message.id;
+
+                  return (
+                    <article
+                      className={`message-bubble ${message.role} ${
+                        message.status ?? ""
+                      }`}
+                      key={message.id}
+                    >
+                      {message.status === "pending" ? (
+                        <div className="thinking-loader" aria-label="Assistant is thinking">
+                          <span className="thinking-loader-dots" aria-hidden="true">
+                            <span />
+                            <span />
+                            <span />
+                          </span>
+                          <span>{message.content}</span>
+                        </div>
+                      ) : null}
+                      {message.role === "assistant" && message.thinking ? (
+                        <details className="thinking-panel">
+                          <summary>Thinking</summary>
+                          <div>{message.thinking}</div>
+                        </details>
+                      ) : null}
+                      {message.status !== "pending" ? (
+                        <div
+                          className={`message-text ${
+                            message.role === "assistant" && !message.status
+                              ? "markdown-preview"
+                              : "plain-text"
+                          }`}
+                        >
+                          {message.role === "assistant" && !message.status ? (
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {message.content}
+                            </ReactMarkdown>
+                          ) : (
+                            <>
+                              {message.content}
+                              {message.status === "streaming" ? (
+                                <span className="streaming-cursor" aria-hidden="true" />
+                              ) : null}
+                            </>
+                          )}
+                        </div>
+                      ) : null}
+                      {htmlPreview ? (
+                        <button
+                          className="html-preview-toggle"
+                          type="button"
+                          aria-pressed={isHtmlPreviewOpen}
+                          onClick={() =>
+                            setActiveHtmlPreviewMessageId(
+                              isHtmlPreviewOpen ? null : message.id,
+                            )
+                          }
+                        >
+                          {isHtmlPreviewOpen ? "Close preview" : "Open HTML preview"}
+                        </button>
+                      ) : null}
+                    </article>
+                  );
+                })}
               </div>
             )}
 
@@ -1167,6 +1249,39 @@ export default function Home() {
               </button>
             </form>
           </section>
+          {activeHtmlPreview ? (
+            <aside className="html-preview-panel" aria-label="HTML preview">
+              <div className="html-preview-header">
+                <div>
+                  <span>HTML preview</span>
+                  <small>Rendered output and source</small>
+                </div>
+                <button
+                  className="html-preview-close"
+                  type="button"
+                  onClick={() => setActiveHtmlPreviewMessageId(null)}
+                >
+                  Close
+                </button>
+              </div>
+              <div className="html-preview-body">
+                <section className="html-preview-frame-section" aria-label="Rendered HTML">
+                  <iframe
+                    className="html-preview-frame"
+                    title="Rendered HTML preview"
+                    sandbox=""
+                    srcDoc={activeHtmlPreview.html}
+                  />
+                </section>
+                <section className="html-preview-source-section" aria-label="HTML source">
+                  <div className="html-preview-section-title">Source</div>
+                  <pre>
+                    <code>{activeHtmlPreview.html}</code>
+                  </pre>
+                </section>
+              </div>
+            </aside>
+          ) : null}
         </div>
       )}
     </main>
