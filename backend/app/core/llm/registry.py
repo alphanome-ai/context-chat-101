@@ -4,7 +4,7 @@ from functools import lru_cache
 
 from app.core.llm.base import BaseChatModel, ChatModelProtocol
 from app.core.llm.errors import LLMModelError
-from app.core.llm.openai_model import (
+from app.core.llm.openai_compatible import (
     GPT52ChatModel,
     GPT52Model,
     GPT53CodexModel,
