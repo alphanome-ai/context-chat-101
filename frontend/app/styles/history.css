@@ -2,12 +2,12 @@
   display: grid;
   height: calc(100svh - 40px);
   min-height: calc(100svh - 40px);
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-columns: 248px minmax(0, 1fr);
   overflow: hidden;
 }
 
 .chat-workspace.with-preview {
-  grid-template-columns: 260px minmax(0, 1fr) minmax(360px, 42vw);
+  grid-template-columns: 248px minmax(520px, 1fr) minmax(340px, 34vw);
 }
 
 .history-sidebar {

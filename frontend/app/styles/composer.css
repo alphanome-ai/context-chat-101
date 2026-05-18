@@ -1,6 +1,6 @@
 .composer-wrap {
   position: relative;
-  width: min(100%, 640px);
+  width: min(100%, 900px);
 }
 
 .draft-editor-panel {
