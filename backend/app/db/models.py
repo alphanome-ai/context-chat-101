@@ -26,6 +26,10 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    quota_usage: Mapped[list["QuotaUsage"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class AuthSession(Base):
@@ -78,3 +82,14 @@ class ChatMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     session: Mapped[ChatSession] = relationship(back_populates="messages")
+
+
+class QuotaUsage(Base):
+    __tablename__ = "quota_usage"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    tokens_used: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    user: Mapped[User] = relationship(back_populates="quota_usage")

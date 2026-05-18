@@ -26,3 +26,29 @@ SQLite is used by default at `context_chat.db`.
 ```bash
 uv run fastapi dev
 ```
+
+## Database migrations
+
+Install dependencies after pulling migration changes:
+
+```bash
+uv sync
+```
+
+Apply migrations:
+
+```bash
+uv run alembic upgrade head
+```
+
+Create a new migration after changing SQLAlchemy models:
+
+```bash
+uv run alembic revision --autogenerate -m "describe change"
+```
+
+Review the generated file under `alembic/versions/`, then apply it with:
+
+```bash
+uv run alembic upgrade head
+```
