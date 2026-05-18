@@ -15,6 +15,7 @@ Start the backend:
 cd backend
 cp .env.example .env
 uv sync
+uv run alembic upgrade head
 uv run fastapi dev
 ```
 
