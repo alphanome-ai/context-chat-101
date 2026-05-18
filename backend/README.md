@@ -14,10 +14,13 @@ Configure `.env`:
 ```bash
 LLM_BASE_URL="https://api.openai.com/v1"
 LLM_API_KEY="..."
+AUTH_JWT_SECRET="change-me-to-a-long-random-secret"
 ```
 
 Available providers and models are defined in the Python LLM registry under
 `app/core/llm`, not in environment variables.
+
+`AUTH_JWT_SECRET` signs login tokens. Changing it invalidates existing tokens.
 
 SQLite is used by default at `context_chat.db`.
 

@@ -29,6 +29,7 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./context_chat.db"
     auth_session_days: int = 30
+    auth_jwt_secret: str = "dev-auth-jwt-secret-change-me"
 
     llm_base_url: str = ""
     llm_api_key: str = ""
