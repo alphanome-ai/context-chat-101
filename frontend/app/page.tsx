@@ -2,6 +2,7 @@
 
 import {
   FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -155,12 +156,60 @@ const starterPrompts = [
 ];
 
 const AUTH_TOKEN_KEY = "context-chat-token";
+const COLLAPSIBLE_MESSAGE_CHAR_LIMIT = 900;
+const COLLAPSIBLE_MESSAGE_LINE_LIMIT = 14;
+const DRAFT_EDITOR_AUTO_OPEN_CHAR_LIMIT = 180;
+const DRAFT_EDITOR_AUTO_OPEN_LINE_LIMIT = 3;
+const MESSAGE_LIST_BOTTOM_THRESHOLD = 80;
+const PROVIDER_STATUS_POLL_INTERVAL_MS = 30_000;
 const chatModeOptions: Array<{ id: ChatMode; label: string }> = [
   { id: "chat", label: "Chat" },
 ];
 
 function createMessageId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function isLongMessage(content: string) {
+  const trimmedContent = content.trim();
+  const lineCount = trimmedContent.split(/\r\n|\r|\n/).length;
+
+  return (
+    trimmedContent.length > COLLAPSIBLE_MESSAGE_CHAR_LIMIT ||
+    lineCount > COLLAPSIBLE_MESSAGE_LINE_LIMIT
+  );
+}
+
+function shouldOpenDraftEditor(content: string) {
+  return (
+    content.length > DRAFT_EDITOR_AUTO_OPEN_CHAR_LIMIT ||
+    content.split(/\r\n|\r|\n/).length >= DRAFT_EDITOR_AUTO_OPEN_LINE_LIMIT
+  );
+}
+
+function isMessageListNearBottom(element: HTMLDivElement) {
+  return (
+    element.scrollHeight - element.scrollTop - element.clientHeight <=
+    MESSAGE_LIST_BOTTOM_THRESHOLD
+  );
+}
+
+async function writeClipboardText(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "fixed";
+  textArea.style.top = "-999px";
+  textArea.style.left = "-999px";
+  document.body.appendChild(textArea);
+  textArea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textArea);
 }
 
 function getErrorMessage(error: unknown) {
@@ -393,7 +442,7 @@ export default function Home() {
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
-  const [providerLabel, setProviderLabel] = useState("Checking provider");
+  const [providerLabel, setProviderLabel] = useState("Checking backend");
   const [providerStatus, setProviderStatus] =
     useState<ProviderStatus>("checking");
   const [llmOptions, setLlmOptions] = useState<LlmOption[]>([]);
@@ -402,9 +451,21 @@ export default function Home() {
   const [openPicker, setOpenPicker] = useState<PickerMenu | null>(null);
   const [activeHtmlPreviewMessageId, setActiveHtmlPreviewMessageId] =
     useState<string | null>(null);
+  const [expandedMessageIds, setExpandedMessageIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [copiedItemId, setCopiedItemId] = useState<string | null>(null);
+  const [isDraftEditorOpen, setIsDraftEditorOpen] = useState(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const messageListRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLFormElement>(null);
+  const draftInputRef = useRef<HTMLTextAreaElement>(null);
+  const expandedDraftInputRef = useRef<HTMLTextAreaElement>(null);
   const hasRestoredClientStateRef = useRef(false);
+  const copyFeedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const isMessageListAtBottomRef = useRef(true);
 
   const canSend = draft.trim().length > 0 && !isSending;
   const hasMessages = messages.length > 0;
@@ -445,6 +506,35 @@ export default function Home() {
 
   useEffect(() => {
     let isMounted = true;
+    let isCheckingStatus = false;
+
+    async function checkApiStatus() {
+      if (isCheckingStatus) {
+        return;
+      }
+
+      isCheckingStatus = true;
+
+      try {
+        const response = await fetch("/api/status", { cache: "no-store" });
+
+        if (!response.ok) {
+          throw new Error("Backend offline");
+        }
+
+        if (isMounted) {
+          setProviderLabel("Online");
+          setProviderStatus("online");
+        }
+      } catch {
+        if (isMounted) {
+          setProviderLabel("Offline");
+          setProviderStatus("offline");
+        }
+      } finally {
+        isCheckingStatus = false;
+      }
+    }
 
     async function loadProvider() {
       try {
@@ -455,7 +545,7 @@ export default function Home() {
           data.providers?.flatMap((providerItem) =>
             providerItem.models.map((model) => ({
               id: model.id,
-              label: model.displayName ?? model.name,
+              label: model.displayName ?? model.name ?? model.id,
               providerName: providerItem.name,
               isDefault: model.isDefault,
             })),
@@ -468,38 +558,66 @@ export default function Home() {
         }
 
         if (isMounted) {
-          setProviderLabel(
-            selectedOption
-              ? `${selectedOption.providerName} / ${selectedOption.id}`
-              : "Ready",
-          );
-          setProviderStatus("online");
           setLlmOptions(nextOptions);
-          setSelectedModel(selectedOption?.id ?? "");
+          setSelectedModel((currentModel) =>
+            nextOptions.some((option) => option.id === currentModel)
+              ? currentModel
+              : (selectedOption?.id ?? ""),
+          );
         }
       } catch {
         if (isMounted) {
-          setProviderLabel("Backend offline");
-          setProviderStatus("offline");
           setLlmOptions([]);
           setSelectedModel("");
         }
       }
     }
 
+    checkApiStatus();
     loadProvider();
+    const providerStatusInterval = window.setInterval(
+      checkApiStatus,
+      PROVIDER_STATUS_POLL_INTERVAL_MS,
+    );
 
     return () => {
       isMounted = false;
+      window.clearInterval(providerStatusInterval);
     };
   }, []);
 
   useEffect(() => {
-    messageListRef.current?.scrollTo({
-      top: messageListRef.current.scrollHeight,
+    const messageList = messageListRef.current;
+
+    if (!messageList) {
+      return;
+    }
+
+    if (!isMessageListAtBottomRef.current) {
+      setShowScrollToBottom(true);
+      return;
+    }
+
+    messageList.scrollTo({
+      top: messageList.scrollHeight,
       behavior: "smooth",
     });
+    setShowScrollToBottom(false);
   }, [messages]);
+
+  useEffect(() => {
+    if (isDraftEditorOpen) {
+      expandedDraftInputRef.current?.focus();
+    }
+  }, [isDraftEditorOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (copyFeedbackTimeoutRef.current) {
+        clearTimeout(copyFeedbackTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (activeHtmlPreviewMessageId && !activeHtmlPreview) {
@@ -682,8 +800,11 @@ export default function Home() {
     };
     const nextMessages = [...apiMessages, userMessage];
 
+    isMessageListAtBottomRef.current = true;
+    setShowScrollToBottom(false);
     setMessages((current) => [...current, userMessage, pendingMessage]);
     setDraft("");
+    setIsDraftEditorOpen(false);
     setIsSending(true);
 
     try {
@@ -786,6 +907,87 @@ export default function Home() {
     sendMessage(draft.trim());
   }
 
+  function handleDraftKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendMessage(draft.trim());
+    }
+  }
+
+  function handleDraftChange(value: string) {
+    setDraft(value);
+
+    if (!isDraftEditorOpen && shouldOpenDraftEditor(value)) {
+      setIsDraftEditorOpen(true);
+    }
+  }
+
+  function handleMessageListScroll() {
+    const messageList = messageListRef.current;
+
+    if (!messageList) {
+      return;
+    }
+
+    const isAtBottom = isMessageListNearBottom(messageList);
+    isMessageListAtBottomRef.current = isAtBottom;
+    setShowScrollToBottom(!isAtBottom);
+  }
+
+  function scrollMessageListToBottom() {
+    const messageList = messageListRef.current;
+
+    if (!messageList) {
+      return;
+    }
+
+    isMessageListAtBottomRef.current = true;
+    setShowScrollToBottom(false);
+    messageList.scrollTo({
+      top: messageList.scrollHeight,
+      behavior: "smooth",
+    });
+  }
+
+  function toggleResponseExpansion(messageId: string) {
+    setExpandedMessageIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(messageId)) {
+        next.delete(messageId);
+      } else {
+        next.add(messageId);
+      }
+
+      return next;
+    });
+  }
+
+  async function copyToClipboard(content: string, itemId: string) {
+    const trimmedContent = content.trim();
+
+    if (!trimmedContent) {
+      return;
+    }
+
+    try {
+      await writeClipboardText(trimmedContent);
+    } catch {
+      return;
+    }
+
+    setCopiedItemId(itemId);
+
+    if (copyFeedbackTimeoutRef.current) {
+      clearTimeout(copyFeedbackTimeoutRef.current);
+    }
+
+    copyFeedbackTimeoutRef.current = setTimeout(() => {
+      setCopiedItemId(null);
+      copyFeedbackTimeoutRef.current = null;
+    }, 1600);
+  }
+
   async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsAuthLoading(true);
@@ -819,6 +1021,11 @@ export default function Home() {
       setAuthPassword("");
       setMessages([]);
       setActiveHtmlPreviewMessageId(null);
+      setExpandedMessageIds(new Set());
+      setCopiedItemId(null);
+      setIsDraftEditorOpen(false);
+      isMessageListAtBottomRef.current = true;
+      setShowScrollToBottom(false);
       setActiveSessionId(null);
       await loadChatSessions(data.token);
     } catch (error) {
@@ -851,6 +1058,11 @@ export default function Home() {
       const data = storedChatSessionSchema.parse(rawData);
       setActiveSessionId(data.id);
       setActiveHtmlPreviewMessageId(null);
+      setExpandedMessageIds(new Set());
+      setCopiedItemId(null);
+      setIsDraftEditorOpen(false);
+      isMessageListAtBottomRef.current = true;
+      setShowScrollToBottom(false);
       setMessages(
         data.messages.map((message) => ({
           id: String(message.id),
@@ -882,18 +1094,17 @@ export default function Home() {
     setActiveSessionId(null);
     setMessages([]);
     setActiveHtmlPreviewMessageId(null);
+    setExpandedMessageIds(new Set());
+    setCopiedItemId(null);
+    setIsDraftEditorOpen(false);
+    isMessageListAtBottomRef.current = true;
+    setShowScrollToBottom(false);
     setDraft("");
   }
 
   function handleModelChange(modelId: string) {
-    const option = llmOptions.find((item) => item.id === modelId);
-
     setSelectedModel(modelId);
     setOpenPicker(null);
-
-    if (option) {
-      setProviderLabel(`${option.providerName} / ${option.id}`);
-    }
   }
 
   function handleModeChange(mode: ChatMode) {
@@ -914,6 +1125,11 @@ export default function Home() {
     setDraft("");
     setActiveSessionId(null);
     setActiveHtmlPreviewMessageId(null);
+    setExpandedMessageIds(new Set());
+    setCopiedItemId(null);
+    setIsDraftEditorOpen(false);
+    isMessageListAtBottomRef.current = true;
+    setShowScrollToBottom(false);
   }
 
   if (!isHydrated) {
@@ -1080,7 +1296,12 @@ export default function Home() {
                 </div>
               </div>
             ) : (
-              <div className="message-list" aria-live="polite" ref={messageListRef}>
+              <div
+                className="message-list"
+                aria-live="polite"
+                ref={messageListRef}
+                onScroll={handleMessageListScroll}
+              >
                 {messages.map((message) => {
                   const htmlPreview =
                     message.role === "assistant" && !message.status
@@ -1088,6 +1309,19 @@ export default function Home() {
                       : null;
                   const isHtmlPreviewOpen =
                     activeHtmlPreview?.messageId === message.id;
+                  const isCollapsibleMessage =
+                    !message.status && isLongMessage(message.content);
+                  const isMessageExpanded = expandedMessageIds.has(message.id);
+                  const isMessageCollapsed =
+                    isCollapsibleMessage && !isMessageExpanded;
+                  const messageContentId = `message-content-${message.id}`;
+                  const copyItemId = `message-${message.id}`;
+                  const copyLabel =
+                    message.role === "assistant" ? "Copy response" : "Copy prompt";
+                  const canCopyMessage =
+                    message.role === "user" ||
+                    (message.role === "assistant" && !message.status);
+                  const isMessageCopied = copiedItemId === copyItemId;
 
                   return (
                     <article
@@ -1118,11 +1352,12 @@ export default function Home() {
                       ) : null}
                       {message.status !== "pending" ? (
                         <div
+                          id={messageContentId}
                           className={`message-text ${
                             message.role === "assistant" && !message.status
                               ? "markdown-preview"
                               : "plain-text"
-                          }`}
+                          } ${isMessageCollapsed ? "collapsed" : ""}`}
                         >
                           {message.role === "assistant" && !message.status ? (
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -1136,6 +1371,40 @@ export default function Home() {
                               ) : null}
                             </>
                           )}
+                        </div>
+                      ) : null}
+                      {isCollapsibleMessage || canCopyMessage ? (
+                        <div className="message-actions">
+                          {isCollapsibleMessage ? (
+                            <button
+                              className="response-toggle"
+                              type="button"
+                              aria-controls={messageContentId}
+                              aria-expanded={isMessageExpanded}
+                              onClick={() => toggleResponseExpansion(message.id)}
+                            >
+                              <span className="response-toggle-icon" aria-hidden="true" />
+                              {isMessageExpanded
+                                ? message.role === "assistant"
+                                  ? "Minimize response"
+                                  : "Minimize prompt"
+                                : message.role === "assistant"
+                                  ? "Show full response"
+                                  : "Show full prompt"}
+                            </button>
+                          ) : null}
+                          {canCopyMessage ? (
+                            <button
+                              className="copy-button"
+                              type="button"
+                              onClick={() =>
+                                void copyToClipboard(message.content, copyItemId)
+                              }
+                            >
+                              <span className="copy-button-icon" aria-hidden="true" />
+                              {isMessageCopied ? "Copied" : copyLabel}
+                            </button>
+                          ) : null}
                         </div>
                       ) : null}
                       {htmlPreview ? (
@@ -1158,8 +1427,53 @@ export default function Home() {
               </div>
             )}
 
-            <form className="composer" onSubmit={handleSubmit} ref={composerRef}>
-              <div className="mode-picker picker">
+            {hasMessages && showScrollToBottom ? (
+              <button
+                className="scroll-bottom-button"
+                type="button"
+                aria-label="Go to latest message"
+                onClick={scrollMessageListToBottom}
+              >
+                <span aria-hidden="true" />
+              </button>
+            ) : null}
+
+            <div className="composer-wrap">
+              {isDraftEditorOpen ? (
+                <div className="draft-editor-panel">
+                  <div className="draft-editor-header">
+                    <span>Message</span>
+                    <button
+                      className="draft-editor-close"
+                      type="button"
+                      onClick={() => setIsDraftEditorOpen(false)}
+                    >
+                      Collapse
+                    </button>
+                  </div>
+                  <textarea
+                    aria-label="Expanded message"
+                    className="draft-editor-input"
+                    ref={expandedDraftInputRef}
+                    value={draft}
+                    onChange={(event) => handleDraftChange(event.target.value)}
+                    disabled={isSending}
+                  />
+                  <div className="draft-editor-footer">
+                    <span>{draft.trim().length} characters</span>
+                    <button
+                      className="draft-editor-send"
+                      type="button"
+                      onClick={() => sendMessage(draft.trim())}
+                      disabled={!canSend}
+                    >
+                      Send
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              <form className="composer" onSubmit={handleSubmit} ref={composerRef}>
+                <div className="mode-picker picker">
                 <button
                   className="picker-trigger"
                   type="button"
@@ -1253,22 +1567,36 @@ export default function Home() {
                   </div>
                 ) : null}
               </div>
-              <input
-                aria-label="Message"
-                placeholder="Type a Message"
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                disabled={isSending}
-              />
-              <button
-                className="send-button"
-                type="submit"
-                aria-label="Send message"
-                disabled={!canSend}
-              >
-                <span aria-hidden="true" className="arrow-up" />
-              </button>
-            </form>
+                <textarea
+                  aria-label="Message"
+                  placeholder="Type a Message"
+                  ref={draftInputRef}
+                  rows={1}
+                  value={draft}
+                  onChange={(event) => handleDraftChange(event.target.value)}
+                  onKeyDown={handleDraftKeyDown}
+                  disabled={isSending}
+                />
+                <button
+                  className="draft-expand-button"
+                  type="button"
+                  aria-label="Open large message editor"
+                  aria-pressed={isDraftEditorOpen}
+                  onClick={() => setIsDraftEditorOpen(true)}
+                  disabled={isSending}
+                >
+                  <span aria-hidden="true" />
+                </button>
+                <button
+                  className="send-button"
+                  type="submit"
+                  aria-label="Send message"
+                  disabled={!canSend}
+                >
+                  <span aria-hidden="true" className="arrow-up" />
+                </button>
+              </form>
+            </div>
           </section>
           {activeHtmlPreview ? (
             <aside className="html-preview-panel" aria-label="HTML preview">
@@ -1295,7 +1623,22 @@ export default function Home() {
                   />
                 </section>
                 <section className="html-preview-source-section" aria-label="HTML source">
-                  <div className="html-preview-section-title">Source</div>
+                  <div className="html-preview-section-title">
+                    <span>Source</span>
+                    <button
+                      className="copy-button compact"
+                      type="button"
+                      onClick={() =>
+                        void copyToClipboard(
+                          activeHtmlPreview.html,
+                          "html-preview-source",
+                        )
+                      }
+                    >
+                      <span className="copy-button-icon" aria-hidden="true" />
+                      {copiedItemId === "html-preview-source" ? "Copied" : "Copy source"}
+                    </button>
+                  </div>
                   <pre>
                     <code>{activeHtmlPreview.html}</code>
                   </pre>

@@ -24,7 +24,8 @@
   --input-text: #18181b;
   --placeholder: #7b7b86;
   --send-bg: #18181b;
-  --send-hover: #2f2f35;
+  --send-hover: #000000;
+  --send-text: #ffffff;
   --send-disabled: #d7d7dd;
   --focus-ring: #303039;
   --toggle-track: #eef0f3;
@@ -66,7 +67,8 @@
   --input-text: #f3f4f6;
   --placeholder: #858b98;
   --send-bg: #f3f4f6;
-  --send-hover: #d7dae0;
+  --send-hover: #ffffff;
+  --send-text: #111318;
   --send-disabled: #3b404b;
   --focus-ring: #cbd5e1;
   --toggle-track: #272b33;
