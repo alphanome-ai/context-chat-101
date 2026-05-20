@@ -3,6 +3,42 @@
   width: min(100%, 900px);
 }
 
+.session-token-usage {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px auto;
+  overflow: hidden;
+  border: 1px solid var(--composer-border);
+  border-radius: 8px;
+  background: var(--control-bg);
+  color: var(--text-body);
+  font-size: 12px;
+  line-height: 1;
+  padding: 7px 9px;
+  box-shadow: var(--shadow-soft);
+}
+
+.session-token-usage span,
+.session-token-usage small {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-token-usage strong {
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.session-token-usage small {
+  font-size: 11px;
+}
+
 .draft-editor-panel {
   position: absolute;
   right: 0;

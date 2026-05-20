@@ -5,7 +5,7 @@ import type {
 } from "react";
 
 import { chatModeOptions } from "../lib/constants";
-import type { ChatMode, LlmOption, PickerMenu } from "../lib/types";
+import type { ChatMode, LlmOption, PickerMenu, TokenUsage } from "../lib/types";
 
 type ComposerProps = {
   canSend: boolean;
@@ -22,6 +22,7 @@ type ComposerProps = {
   selectedModeLabel: string;
   selectedModel: string;
   selectedModelLabel: string;
+  sessionTokenUsage: TokenUsage;
   onDraftChange: (value: string) => void;
   onDraftKeyDown: (event: ReactKeyboardEvent<HTMLTextAreaElement>) => void;
   onModeChange: (mode: ChatMode) => void;
@@ -47,6 +48,7 @@ export function Composer({
   selectedModeLabel,
   selectedModel,
   selectedModelLabel,
+  sessionTokenUsage,
   onDraftChange,
   onDraftKeyDown,
   onModeChange,
@@ -56,8 +58,20 @@ export function Composer({
   onSendMessage,
   onSubmit,
 }: ComposerProps) {
+  const hasSessionUsage = sessionTokenUsage.totalTokens > 0;
+
   return (
     <div className="composer-wrap">
+      {hasSessionUsage ? (
+        <div className="session-token-usage" aria-label="Session token usage">
+          <span>Session tokens</span>
+          <strong>{sessionTokenUsage.totalTokens.toLocaleString()}</strong>
+          <small>
+            {sessionTokenUsage.promptTokens.toLocaleString()} prompt /{" "}
+            {sessionTokenUsage.completionTokens.toLocaleString()} completion
+          </small>
+        </div>
+      ) : null}
       {isDraftEditorOpen ? (
         <div className="draft-editor-panel">
           <div className="draft-editor-header">

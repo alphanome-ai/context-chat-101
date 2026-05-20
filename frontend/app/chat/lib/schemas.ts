@@ -47,6 +47,12 @@ export const assistantResponseMessageSchema = z.object({
   thinking: z.string().nullable().optional(),
 });
 
+export const tokenUsageSchema = z.object({
+  prompt_tokens: z.number(),
+  completion_tokens: z.number(),
+  total_tokens: z.number(),
+});
+
 export const chatCompletionResponseSchema = z.object({
   choices: z
     .array(
@@ -55,6 +61,7 @@ export const chatCompletionResponseSchema = z.object({
       }),
     )
     .optional(),
+  usage: tokenUsageSchema.nullable().optional(),
   error: z.object({ message: z.string().optional() }).optional(),
 });
 
@@ -66,6 +73,7 @@ export const chatCompletionChunkSchema = z.object({
       }),
     )
     .optional(),
+  usage: tokenUsageSchema.nullable().optional(),
   error: z.object({ message: z.string().optional() }).optional(),
 });
 
@@ -91,6 +99,9 @@ export const storedChatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
   content: z.string(),
   thinking: z.string().nullable().optional(),
+  prompt_tokens: z.number().nullable().optional(),
+  completion_tokens: z.number().nullable().optional(),
+  total_tokens: z.number().nullable().optional(),
 });
 
 export const storedChatSessionSchema = chatSessionDetailSchema.extend({
@@ -103,3 +114,4 @@ export type AssistantResponseMessage = z.infer<
   typeof assistantResponseMessageSchema
 >;
 export type AssistantStreamChunk = z.infer<typeof chatCompletionChunkSchema>;
+export type TokenUsageResponse = z.infer<typeof tokenUsageSchema>;

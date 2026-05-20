@@ -5,6 +5,10 @@ import remarkGfm from "remark-gfm";
 import type { HtmlPreview, Message } from "../lib/types";
 import { extractHtmlPreview, isLongMessage } from "../lib/utils";
 
+function formatTokenCount(value: number) {
+  return value.toLocaleString();
+}
+
 type ChatMessagesProps = {
   activeHtmlPreview: HtmlPreview | null;
   copiedItemId: string | null;
@@ -55,6 +59,10 @@ export function ChatMessages({
           message.role === "user" ||
           (message.role === "assistant" && !message.status);
         const isMessageCopied = copiedItemId === copyItemId;
+        const tokenUsage =
+          message.role === "assistant" && !message.status
+            ? message.tokenUsage
+            : undefined;
 
         return (
           <article
@@ -104,7 +112,7 @@ export function ChatMessages({
                 )}
               </div>
             ) : null}
-            {isCollapsibleMessage || canCopyMessage ? (
+            {isCollapsibleMessage || canCopyMessage || tokenUsage ? (
               <div className="message-actions">
                 {isCollapsibleMessage ? (
                   <button
@@ -133,6 +141,28 @@ export function ChatMessages({
                     <span className="copy-button-icon" aria-hidden="true" />
                     {isMessageCopied ? "Copied" : copyLabel}
                   </button>
+                ) : null}
+                {tokenUsage ? (
+                  <details className="token-details">
+                    <summary>
+                      <span className="token-details-icon" aria-hidden="true" />
+                      Token details
+                    </summary>
+                    <dl>
+                      <div>
+                        <dt>Prompt</dt>
+                        <dd>{formatTokenCount(tokenUsage.promptTokens)}</dd>
+                      </div>
+                      <div>
+                        <dt>Completion</dt>
+                        <dd>{formatTokenCount(tokenUsage.completionTokens)}</dd>
+                      </div>
+                      <div>
+                        <dt>Total</dt>
+                        <dd>{formatTokenCount(tokenUsage.totalTokens)}</dd>
+                      </div>
+                    </dl>
+                  </details>
                 ) : null}
               </div>
             ) : null}

@@ -119,6 +119,7 @@ export default function Home() {
               selectedModeLabel={state.selectedModeLabel}
               selectedModel={state.selectedModel}
               selectedModelLabel={state.selectedModelLabel}
+              sessionTokenUsage={state.sessionTokenUsage}
               onDraftChange={actions.handleDraftChange}
               onDraftKeyDown={actions.handleDraftKeyDown}
               onModeChange={actions.handleModeChange}

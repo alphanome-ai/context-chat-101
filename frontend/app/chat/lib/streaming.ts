@@ -2,7 +2,23 @@ import {
   chatCompletionChunkSchema,
   type AssistantResponseMessage,
   type AssistantStreamChunk,
+  type TokenUsageResponse,
 } from "./schemas";
+import type { TokenUsage } from "./types";
+
+export function normalizeTokenUsage(
+  usage?: TokenUsageResponse | null,
+): TokenUsage | undefined {
+  if (!usage) {
+    return undefined;
+  }
+
+  return {
+    promptTokens: usage.prompt_tokens,
+    completionTokens: usage.completion_tokens,
+    totalTokens: usage.total_tokens,
+  };
+}
 
 export function getThinkingText(message?: AssistantResponseMessage) {
   if (!message || typeof message !== "object") {
@@ -51,7 +67,11 @@ function extractAssistantChunk(chunk: AssistantStreamChunk) {
 
 export async function readStreamingAssistantResponse(
   response: Response,
-  onUpdate: (message: { content: string; thinking?: string }) => void,
+  onUpdate: (message: {
+    content: string;
+    thinking?: string;
+    tokenUsage?: TokenUsage;
+  }) => void,
 ) {
   if (!response.body) {
     throw new Error("The backend did not return a response stream.");
@@ -62,6 +82,7 @@ export async function readStreamingAssistantResponse(
   let buffer = "";
   let rawContent = "";
   let rawThinking = "";
+  let tokenUsage: TokenUsage | undefined;
   let isDone = false;
 
   function applyContentUpdate() {
@@ -74,6 +95,7 @@ export async function readStreamingAssistantResponse(
     onUpdate({
       content: content || (thinking ? "" : "Thinking"),
       thinking: thinking || undefined,
+      tokenUsage,
     });
   }
 
@@ -101,6 +123,7 @@ export async function readStreamingAssistantResponse(
       throw new Error(chunk.error.message);
     }
 
+    tokenUsage = normalizeTokenUsage(chunk.usage) ?? tokenUsage;
     const nextDelta = extractAssistantChunk(chunk);
     if (!nextDelta.content && !nextDelta.thinking) {
       return;
@@ -140,5 +163,6 @@ export async function readStreamingAssistantResponse(
   return {
     content: content.trim(),
     thinking: thinking || undefined,
+    tokenUsage,
   };
 }

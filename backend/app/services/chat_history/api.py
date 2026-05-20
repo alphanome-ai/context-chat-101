@@ -16,6 +16,9 @@ class ChatMessageCreate(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(min_length=1)
     thinking: str | None = None
+    prompt_tokens: int | None = Field(default=None, ge=0)
+    completion_tokens: int | None = Field(default=None, ge=0)
+    total_tokens: int | None = Field(default=None, ge=0)
 
 
 class ChatSessionCreate(BaseModel):
@@ -34,6 +37,9 @@ class ChatMessageResponse(BaseModel):
     role: str
     content: str
     thinking: str | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
     position: int
     created_at: datetime
 
@@ -100,6 +106,9 @@ def _append_messages(
                 role=message.role,
                 content=message.content,
                 thinking=message.thinking.strip() if message.thinking else None,
+                prompt_tokens=message.prompt_tokens,
+                completion_tokens=message.completion_tokens,
+                total_tokens=message.total_tokens,
                 position=next_position + offset,
             )
         )

@@ -107,10 +107,6 @@ class OpenAIResponsesModel(OpenAIModelAdapter):
         reasoning = self._build_reasoning()
         if reasoning:
             payload["reasoning"] = reasoning
-        if stream and request.stream_options:
-            payload["stream_options"] = {
-                "include_usage": request.stream_options.include_usage,
-            }
 
         return payload
 

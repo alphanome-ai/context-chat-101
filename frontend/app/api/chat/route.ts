@@ -37,6 +37,9 @@ export async function POST(request: Request) {
       model: body.model ?? "default",
       messages: body.messages,
       stream: true,
+      stream_options: {
+        include_usage: true,
+      },
       temperature: body.temperature ?? 0.2,
     }),
     cache: "no-store",

@@ -11,7 +11,14 @@ export type Message = {
   role: "user" | "assistant";
   content: string;
   thinking?: string;
+  tokenUsage?: TokenUsage;
   status?: "pending" | "streaming" | "error";
+};
+
+export type TokenUsage = {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
 };
 
 export type HtmlPreview = {

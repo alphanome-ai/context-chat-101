@@ -73,6 +73,16 @@
     width: 100%;
   }
 
+  .session-token-usage {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0;
+  }
+
+  .session-token-usage small {
+    display: none;
+  }
+
   .mode-picker {
     flex-basis: 78px;
   }

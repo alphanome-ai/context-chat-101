@@ -26,6 +26,7 @@ import {
 } from "./lib/schemas";
 import {
   getThinkingText,
+  normalizeTokenUsage,
   readStreamingAssistantResponse,
   splitTaggedThinking,
 } from "./lib/streaming";
@@ -39,6 +40,7 @@ import type {
   PickerMenu,
   ProviderStatus,
   Theme,
+  TokenUsage,
   User,
 } from "./lib/types";
 import {
@@ -107,6 +109,25 @@ export function useChatController() {
     ? selectedModelOption.label
     : "LLM unavailable";
   const isModelPickerDisabled = isSending || llmOptions.length === 0;
+  const sessionTokenUsage = useMemo<TokenUsage>(
+    () =>
+      messages.reduce<TokenUsage>(
+        (total, message) => {
+          if (!message.tokenUsage) {
+            return total;
+          }
+
+          return {
+            promptTokens: total.promptTokens + message.tokenUsage.promptTokens,
+            completionTokens:
+              total.completionTokens + message.tokenUsage.completionTokens,
+            totalTokens: total.totalTokens + message.tokenUsage.totalTokens,
+          };
+        },
+        { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      ),
+    [messages],
+  );
   const activeHtmlPreview = useMemo(() => {
     if (!activeHtmlPreviewMessageId) {
       return null;
@@ -392,6 +413,9 @@ export function useChatController() {
           role: assistantMessage.role,
           content: assistantMessage.content,
           thinking: assistantMessage.thinking,
+          prompt_tokens: assistantMessage.tokenUsage?.promptTokens,
+          completion_tokens: assistantMessage.tokenUsage?.completionTokens,
+          total_tokens: assistantMessage.tokenUsage?.totalTokens,
         },
       ],
     };
@@ -465,6 +489,7 @@ export function useChatController() {
 
       let assistantContent = "";
       let thinking = "";
+      let tokenUsage: TokenUsage | undefined;
 
       if (contentType.includes("text/event-stream")) {
         const streamedMessage = await readStreamingAssistantResponse(
@@ -477,6 +502,7 @@ export function useChatController() {
                       ...message,
                       content: nextMessage.content,
                       thinking: nextMessage.thinking,
+                      tokenUsage: nextMessage.tokenUsage,
                       status: "streaming",
                     }
                   : message,
@@ -487,6 +513,7 @@ export function useChatController() {
 
         assistantContent = streamedMessage.content;
         thinking = streamedMessage.thinking ?? "";
+        tokenUsage = streamedMessage.tokenUsage;
       } else {
         const rawData = await readJsonResponse(response);
         const data = chatCompletionResponseSchema.parse(rawData);
@@ -498,12 +525,14 @@ export function useChatController() {
         thinking = [getThinkingText(assistantMessage), taggedThinking]
           .filter(Boolean)
           .join("\n\n");
+        tokenUsage = normalizeTokenUsage(data.usage);
       }
 
       const assistantMessageForHistory: Message = {
         ...pendingMessage,
         content: assistantContent || "No visible answer returned.",
         thinking: thinking || undefined,
+        tokenUsage,
         status: undefined,
       };
 
@@ -691,6 +720,16 @@ export function useChatController() {
           role: message.role,
           content: message.content,
           thinking: message.thinking ?? undefined,
+          tokenUsage:
+            message.prompt_tokens != null &&
+            message.completion_tokens != null &&
+            message.total_tokens != null
+              ? {
+                  promptTokens: message.prompt_tokens,
+                  completionTokens: message.completion_tokens,
+                  totalTokens: message.total_tokens,
+                }
+              : undefined,
         })),
       );
       setDraft("");
@@ -777,6 +816,7 @@ export function useChatController() {
       selectedModeLabel,
       selectedModel,
       selectedModelLabel,
+      sessionTokenUsage,
       showScrollToBottom,
       theme,
     },

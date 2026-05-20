@@ -309,7 +309,8 @@
 }
 
 .html-preview-toggle,
-.copy-button {
+.copy-button,
+.token-details summary {
   display: inline-flex;
   width: fit-content;
   align-items: center;
@@ -352,7 +353,8 @@
   background: var(--control-hover);
 }
 
-.copy-button {
+.copy-button,
+.token-details summary {
   gap: 7px;
 }
 
@@ -363,12 +365,14 @@
   padding: 0 8px;
 }
 
-.copy-button:hover {
+.copy-button:hover,
+.token-details summary:hover {
   background: var(--control-hover);
 }
 
 .copy-button:focus-visible,
-.response-toggle:focus-visible {
+.response-toggle:focus-visible,
+.token-details summary:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
@@ -402,6 +406,82 @@
   width: 7px;
   height: 7px;
   background: var(--control-bg);
+}
+
+.token-details {
+  position: relative;
+}
+
+.token-details summary {
+  list-style: none;
+}
+
+.token-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.token-details-icon {
+  position: relative;
+  width: 11px;
+  height: 11px;
+  flex: 0 0 auto;
+}
+
+.token-details-icon::before,
+.token-details-icon::after {
+  position: absolute;
+  content: "";
+}
+
+.token-details-icon::before {
+  inset: 1px 2px;
+  border-right: 1.5px solid currentColor;
+  border-left: 1.5px solid currentColor;
+}
+
+.token-details-icon::after {
+  top: 3px;
+  right: 0;
+  left: 0;
+  height: 1.5px;
+  background: currentColor;
+  box-shadow: 0 4px 0 currentColor;
+}
+
+.token-details dl {
+  display: grid;
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 0;
+  z-index: 3;
+  min-width: 170px;
+  gap: 6px;
+  margin: 0;
+  border: 1px solid var(--composer-border);
+  border-radius: 8px;
+  background: var(--control-bg);
+  padding: 9px 10px;
+  box-shadow: 0 12px 30px rgba(16, 24, 40, 0.16);
+}
+
+.token-details div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.token-details dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 560;
+}
+
+.token-details dd {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 650;
 }
 
 .response-toggle-icon {
