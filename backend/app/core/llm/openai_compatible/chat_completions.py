@@ -21,8 +21,8 @@ def _usage_to_schema(usage: Any | None) -> Usage | None:
     if not usage:
         return None
     return Usage(
-        prompt_tokens=usage.prompt_tokens,
-        completion_tokens=usage.completion_tokens,
+        input_tokens=usage.prompt_tokens,
+        output_tokens=usage.completion_tokens,
         total_tokens=usage.total_tokens,
     )
 

@@ -71,8 +71,8 @@ def _usage_to_schema(response: Any) -> Usage | None:
     if usage is None:
         return None
     return Usage(
-        prompt_tokens=usage.input_tokens,
-        completion_tokens=usage.output_tokens,
+        input_tokens=usage.input_tokens,
+        output_tokens=usage.output_tokens,
         total_tokens=usage.total_tokens,
     )
 

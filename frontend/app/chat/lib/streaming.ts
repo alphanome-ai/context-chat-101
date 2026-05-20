@@ -14,8 +14,8 @@ export function normalizeTokenUsage(
   }
 
   return {
-    promptTokens: usage.prompt_tokens,
-    completionTokens: usage.completion_tokens,
+    inputTokens: usage.input_tokens,
+    outputTokens: usage.output_tokens,
     totalTokens: usage.total_tokens,
   };
 }

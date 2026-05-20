@@ -48,8 +48,8 @@ export const assistantResponseMessageSchema = z.object({
 });
 
 export const tokenUsageSchema = z.object({
-  prompt_tokens: z.number(),
-  completion_tokens: z.number(),
+  input_tokens: z.number(),
+  output_tokens: z.number(),
   total_tokens: z.number(),
 });
 
@@ -99,8 +99,8 @@ export const storedChatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
   content: z.string(),
   thinking: z.string().nullable().optional(),
-  prompt_tokens: z.number().nullable().optional(),
-  completion_tokens: z.number().nullable().optional(),
+  input_tokens: z.number().nullable().optional(),
+  output_tokens: z.number().nullable().optional(),
   total_tokens: z.number().nullable().optional(),
 });
 

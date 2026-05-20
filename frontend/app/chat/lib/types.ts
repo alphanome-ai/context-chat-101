@@ -16,8 +16,8 @@ export type Message = {
 };
 
 export type TokenUsage = {
-  promptTokens: number;
-  completionTokens: number;
+  inputTokens: number;
+  outputTokens: number;
   totalTokens: number;
 };
 

@@ -164,8 +164,8 @@ class InferenceRequest(BaseModel):
 
 
 class Usage(BaseModel):
-    prompt_tokens: int
-    completion_tokens: int
+    input_tokens: int
+    output_tokens: int
     total_tokens: int
 
 

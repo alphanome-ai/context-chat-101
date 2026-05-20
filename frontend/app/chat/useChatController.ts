@@ -118,13 +118,12 @@ export function useChatController() {
           }
 
           return {
-            promptTokens: total.promptTokens + message.tokenUsage.promptTokens,
-            completionTokens:
-              total.completionTokens + message.tokenUsage.completionTokens,
+            inputTokens: total.inputTokens + message.tokenUsage.inputTokens,
+            outputTokens: total.outputTokens + message.tokenUsage.outputTokens,
             totalTokens: total.totalTokens + message.tokenUsage.totalTokens,
           };
         },
-        { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
       ),
     [messages],
   );
@@ -413,8 +412,8 @@ export function useChatController() {
           role: assistantMessage.role,
           content: assistantMessage.content,
           thinking: assistantMessage.thinking,
-          prompt_tokens: assistantMessage.tokenUsage?.promptTokens,
-          completion_tokens: assistantMessage.tokenUsage?.completionTokens,
+          input_tokens: assistantMessage.tokenUsage?.inputTokens,
+          output_tokens: assistantMessage.tokenUsage?.outputTokens,
           total_tokens: assistantMessage.tokenUsage?.totalTokens,
         },
       ],
@@ -721,12 +720,12 @@ export function useChatController() {
           content: message.content,
           thinking: message.thinking ?? undefined,
           tokenUsage:
-            message.prompt_tokens != null &&
-            message.completion_tokens != null &&
+            message.input_tokens != null &&
+            message.output_tokens != null &&
             message.total_tokens != null
               ? {
-                  promptTokens: message.prompt_tokens,
-                  completionTokens: message.completion_tokens,
+                  inputTokens: message.input_tokens,
+                  outputTokens: message.output_tokens,
                   totalTokens: message.total_tokens,
                 }
               : undefined,

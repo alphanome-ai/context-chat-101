@@ -150,15 +150,15 @@ export function ChatMessages({
                     </summary>
                     <dl>
                       <div>
-                        <dt>Prompt</dt>
-                        <dd>{formatTokenCount(tokenUsage.promptTokens)}</dd>
+                        <dt>Input tokens</dt>
+                        <dd>{formatTokenCount(tokenUsage.inputTokens)}</dd>
                       </div>
                       <div>
-                        <dt>Completion</dt>
-                        <dd>{formatTokenCount(tokenUsage.completionTokens)}</dd>
+                        <dt>Output tokens</dt>
+                        <dd>{formatTokenCount(tokenUsage.outputTokens)}</dd>
                       </div>
                       <div>
-                        <dt>Total</dt>
+                        <dt>Total tokens</dt>
                         <dd>{formatTokenCount(tokenUsage.totalTokens)}</dd>
                       </div>
                     </dl>

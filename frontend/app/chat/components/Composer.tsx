@@ -67,8 +67,8 @@ export function Composer({
           <span>Session tokens</span>
           <strong>{sessionTokenUsage.totalTokens.toLocaleString()}</strong>
           <small>
-            {sessionTokenUsage.promptTokens.toLocaleString()} prompt /{" "}
-            {sessionTokenUsage.completionTokens.toLocaleString()} completion
+            {sessionTokenUsage.inputTokens.toLocaleString()} input /{" "}
+            {sessionTokenUsage.outputTokens.toLocaleString()} output
           </small>
         </div>
       ) : null}
