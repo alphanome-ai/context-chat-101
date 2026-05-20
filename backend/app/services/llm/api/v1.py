@@ -22,7 +22,7 @@ async def list_providers() -> ProvidersResponse:
     return get_llm_registry().providers_response()
 
 
-@router.post("/inference/request")
+@router.post("/chat")
 async def inference_request(request: InferenceRequest):
     try:
         model, resolved_model = get_llm_registry().resolve(request.model)

@@ -137,7 +137,7 @@ class LLMApiTests(unittest.TestCase):
 
         with patch("app.services.llm.api.v1.get_llm_registry", return_value=make_registry()):
             response = client.post(
-                "/inference/request",
+                "/chat",
                 json={
                     "model": "default",
                     "messages": [{"role": "user", "content": "hello"}],
@@ -158,7 +158,7 @@ class LLMApiTests(unittest.TestCase):
 
         with patch("app.services.llm.api.v1.get_llm_registry", return_value=make_registry()):
             response = client.post(
-                "/inference/request",
+                "/chat",
                 json={
                     "model": "missing-model",
                     "messages": [{"role": "user", "content": "hello"}],
@@ -176,7 +176,7 @@ class LLMApiTests(unittest.TestCase):
         with patch("app.services.llm.api.v1.get_llm_registry", return_value=make_registry()):
             with client.stream(
                 "POST",
-                "/inference/request",
+                "/chat",
                 json={
                     "model": "fake-other",
                     "messages": [{"role": "user", "content": "hello"}],
@@ -208,7 +208,7 @@ class LLMApiTests(unittest.TestCase):
         with patch("app.services.llm.api.v1.get_llm_registry", return_value=registry):
             with client.stream(
                 "POST",
-                "/inference/request",
+                "/chat",
                 json={
                     "model": "fake-error",
                     "messages": [{"role": "user", "content": "hello"}],

@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const upstreamResponse = await fetchBackend("/api/v1/llm/inference/request", {
+  const upstreamResponse = await fetchBackend("/api/v1/llm/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

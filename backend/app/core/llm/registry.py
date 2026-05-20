@@ -106,7 +106,7 @@ class LLMRegistry:
                 models=[
                     LLMModel(
                         id=model.id,
-                        name=model.name,
+                        name=model.display_name,
                         displayName=model.display_name or model.name,
                         isDefault=model.id == provider.default_model,
                     )
