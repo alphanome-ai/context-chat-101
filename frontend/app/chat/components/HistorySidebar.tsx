@@ -5,11 +5,11 @@ import {
 } from "../lib/utils";
 
 type HistorySidebarProps = {
-  activeSessionId: number | null;
+  activeSessionId: string | null;
   chatSessions: ChatSessionSummary[];
   historyError: string;
   isHistoryLoading: boolean;
-  onLoadSession: (sessionId: number) => void;
+  onLoadSession: (sessionId: string) => void;
 };
 
 export function HistorySidebar({

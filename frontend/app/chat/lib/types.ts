@@ -26,11 +26,6 @@ export type HtmlPreview = {
   html: string;
 };
 
-export type ApiMessage = {
-  role: "user" | "assistant";
-  content: string;
-};
-
 export type ProviderStatus = "checking" | "online" | "offline";
 export type Theme = "light" | "dark";
 export type AuthMode = "login" | "register";

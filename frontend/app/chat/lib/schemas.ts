@@ -11,7 +11,7 @@ export const authFormSchema = z.object({
 });
 
 export const userSchema = z.object({
-  id: z.number(),
+  id: z.string().uuid(),
   email: z.string(),
   created_at: z.string(),
 });
@@ -78,7 +78,7 @@ export const chatCompletionChunkSchema = z.object({
 });
 
 export const chatSessionSummarySchema = z.object({
-  id: z.number(),
+  id: z.string().uuid(),
   title: z.string(),
   model: z.string().nullable().optional(),
   mode: z.enum(["chat", "agent"]).default("chat"),
@@ -88,7 +88,7 @@ export const chatSessionSummarySchema = z.object({
 });
 
 export const chatSessionDetailSchema = z.object({
-  id: z.number(),
+  id: z.string().uuid(),
   title: z.string(),
   model: z.string().nullable().optional(),
   mode: z.enum(["chat", "agent"]).default("chat"),

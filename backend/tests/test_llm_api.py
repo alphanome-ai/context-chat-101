@@ -1,11 +1,15 @@
 import unittest
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Generator
 from unittest.mock import patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
+from app.api.deps import get_current_user
 from app.core.chat import ChatService
 from app.core.llm.base import BaseChatModel
 from app.core.llm.errors import LLMModelError
@@ -19,9 +23,14 @@ from app.core.llm.schemas import (
     InferenceRequest,
     StreamChoice,
 )
+from app.db.models import ChatMessage as StoredChatMessage
+from app.db.models import ChatSession, User
+from app.db.session import Base, get_db
 from app.services.agent.api.v1 import router as agent_router
 from app.services.chat.api.v1 import router as chat_router
 from app.services.llm.api.v1 import router as llm_router
+
+USER_ID = "11111111-1111-4111-8111-111111111111"
 
 
 class FakeChatModel(BaseChatModel):
@@ -68,10 +77,52 @@ class StreamErrorChatModel(FakeChatModel):
         return _iterator()
 
 
+class RecordingChatModel(FakeChatModel):
+    last_request: InferenceRequest | None = None
+
+    async def complete(self, request: InferenceRequest) -> ChatCompletionResponse:
+        RecordingChatModel.last_request = request
+        return await super().complete(request)
+
+
 def make_test_client(router) -> TestClient:
     app = FastAPI()
     app.include_router(router)
     return TestClient(app)
+
+
+def make_authenticated_chat_client() -> tuple[TestClient, sessionmaker[Session]]:
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+    with session_factory() as db:
+        db.add(User(id=USER_ID, email="user@example.com", password_hash="hash"))
+        db.commit()
+
+    def override_db() -> Generator[Session]:
+        db = session_factory()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    def override_user() -> User:
+        with session_factory() as db:
+            user = db.get(User, USER_ID)
+            assert user is not None
+            db.expunge(user)
+            return user
+
+    app = FastAPI()
+    app.include_router(chat_router)
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = override_user
+    return TestClient(app), session_factory
 
 
 def make_registry() -> LLMRegistry:
@@ -96,6 +147,20 @@ def make_registry() -> LLMRegistry:
                         model_cls=FakeChatModel,
                     ),
                 ),
+            ),
+        )
+    )
+
+
+def make_recording_registry() -> LLMRegistry:
+    return LLMRegistry(
+        (
+            ProviderDefinition(
+                id="fake",
+                name="Fake Provider",
+                type="fake",
+                default_model="recording",
+                models=(ModelDefinition(id="recording", model_cls=RecordingChatModel),),
             ),
         )
     )
@@ -137,14 +202,14 @@ class LLMApiTests(unittest.TestCase):
         )
 
     def test_non_streaming_completion_returns_fake_model_response(self) -> None:
-        client = make_test_client(chat_router)
+        client, _ = make_authenticated_chat_client()
 
         with patch("app.core.chat.service.get_llm_registry", return_value=make_registry()):
             response = client.post(
                 "/run",
                 json={
                     "model": "default",
-                    "messages": [{"role": "user", "content": "hello"}],
+                    "message": "hello",
                     "stream": False,
                 },
             )
@@ -158,14 +223,14 @@ class LLMApiTests(unittest.TestCase):
         )
 
     def test_unknown_model_returns_structured_error(self) -> None:
-        client = make_test_client(chat_router)
+        client, _ = make_authenticated_chat_client()
 
         with patch("app.core.chat.service.get_llm_registry", return_value=make_registry()):
             response = client.post(
                 "/run",
                 json={
                     "model": "missing-model",
-                    "messages": [{"role": "user", "content": "hello"}],
+                    "message": "hello",
                     "stream": False,
                 },
             )
@@ -175,7 +240,7 @@ class LLMApiTests(unittest.TestCase):
         self.assertEqual(response.json()["error"]["message"], "Unsupported model: missing-model")
 
     def test_streaming_completion_wraps_chunks_as_sse(self) -> None:
-        client = make_test_client(chat_router)
+        client, _ = make_authenticated_chat_client()
 
         with patch("app.core.chat.service.get_llm_registry", return_value=make_registry()):
             with client.stream(
@@ -183,7 +248,7 @@ class LLMApiTests(unittest.TestCase):
                 "/run",
                 json={
                     "model": "fake-other",
-                    "messages": [{"role": "user", "content": "hello"}],
+                    "message": "hello",
                     "stream": True,
                 },
             ) as response:
@@ -208,7 +273,7 @@ class LLMApiTests(unittest.TestCase):
             )
         )
 
-        client = make_test_client(chat_router)
+        client, _ = make_authenticated_chat_client()
 
         with patch("app.core.chat.service.get_llm_registry", return_value=registry):
             with client.stream(
@@ -216,7 +281,7 @@ class LLMApiTests(unittest.TestCase):
                 "/run",
                 json={
                     "model": "fake-error",
-                    "messages": [{"role": "user", "content": "hello"}],
+                    "message": "hello",
                     "stream": True,
                 },
             ) as response:
@@ -230,7 +295,7 @@ class LLMApiTests(unittest.TestCase):
 
     def test_chat_service_resolves_model_before_delegating_to_adapter(self) -> None:
         response = asyncio.run(
-            ChatService(make_registry()).run(
+            ChatService(make_registry()).run_inference(
                 InferenceRequest(
                     model="default",
                     messages=[{"role": "user", "content": "hello"}],
@@ -241,6 +306,58 @@ class LLMApiTests(unittest.TestCase):
 
         self.assertIsInstance(response, ChatCompletionResponse)
         self.assertEqual(response.model, "fake-default")
+
+    def test_chat_context_manager_builds_prompt_from_saved_session(self) -> None:
+        RecordingChatModel.last_request = None
+        client, session_factory = make_authenticated_chat_client()
+        with session_factory() as db:
+            chat_session = ChatSession(user_id=USER_ID, title="Saved chat", model="recording")
+            db.add(chat_session)
+            db.flush()
+            db.add_all(
+                [
+                    StoredChatMessage(
+                        session_id=chat_session.id,
+                        role="user",
+                        content="first user",
+                        position=0,
+                    ),
+                    StoredChatMessage(
+                        session_id=chat_session.id,
+                        role="assistant",
+                        content="first assistant",
+                        position=1,
+                    ),
+                ]
+            )
+            db.commit()
+            session_id = chat_session.id
+
+        with patch("app.core.chat.service.get_llm_registry", return_value=make_recording_registry()):
+            response = client.post(
+                "/run",
+                json={
+                    "session_id": session_id,
+                    "model": "recording",
+                    "message": "second user",
+                    "stream": False,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(RecordingChatModel.last_request)
+        assert RecordingChatModel.last_request is not None
+        self.assertEqual(
+            [
+                message.model_dump(exclude_none=True)
+                for message in RecordingChatModel.last_request.messages
+            ],
+            [
+                {"role": "user", "content": "first user"},
+                {"role": "assistant", "content": "first assistant"},
+                {"role": "user", "content": "second user"},
+            ],
+        )
 
     def test_agent_run_returns_not_implemented_error(self) -> None:
         client = make_test_client(agent_router)

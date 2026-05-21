@@ -3,23 +3,33 @@ from collections.abc import AsyncIterator
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from app.core.chat import ChatService, ChatStreamResult
+from app.api.deps import CurrentUser, DbSession
+from app.core.chat import ChatContextError, ChatRunRequest, ChatService, ChatStreamResult
 from app.core.llm.errors import LLMModelError
 from app.core.llm.schemas import (
     ChatCompletionChunk,
     ErrorDetail,
     ErrorMetadata,
     ErrorResponse,
-    InferenceRequest,
 )
 
 router = APIRouter()
 
 
 @router.post("/run")
-async def run_chat(request: InferenceRequest):
+async def run_chat(request: ChatRunRequest, current_user: CurrentUser, db: DbSession):
     try:
-        result = await ChatService().run(request)
+        result = await ChatService().run(request, db=db, user_id=current_user.id)
+    except ChatContextError as exc:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=ErrorResponse(
+                error=ErrorDetail(
+                    message=exc.message,
+                    code=exc.error_code,
+                )
+            ).model_dump(exclude_none=True),
+        )
     except LLMModelError as exc:
         return _error_response(exc)
 

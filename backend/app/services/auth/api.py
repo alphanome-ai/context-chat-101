@@ -23,7 +23,7 @@ class AuthRequest(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: int
+    id: str
     email: EmailStr
     created_at: datetime
 

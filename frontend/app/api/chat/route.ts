@@ -1,12 +1,8 @@
-import { fetchBackend } from "../_backend";
-
-type ChatMessage = {
-  role: "system" | "user" | "assistant" | "tool";
-  content: string | null;
-};
+import { fetchBackend, getAuthHeaders } from "../_backend";
 
 type ChatRequestBody = {
-  messages?: ChatMessage[];
+  session_id?: string | null;
+  message?: string;
   model?: string;
   temperature?: number;
 };
@@ -23,19 +19,25 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!Array.isArray(body.messages) || body.messages.length === 0) {
+  const message = body.message?.trim();
+
+  if (!message) {
     return Response.json(
-      { error: { message: "At least one chat message is required." } },
+      { error: { message: "A chat message is required." } },
       { status: 400 },
     );
   }
 
   const upstreamResponse = await fetchBackend("/api/v1/chat/run", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(request),
+    },
     body: JSON.stringify({
+      session_id: body.session_id ?? null,
       model: body.model ?? "default",
-      messages: body.messages,
+      message,
       stream: true,
       stream_options: {
         include_usage: true,

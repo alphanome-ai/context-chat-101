@@ -31,7 +31,6 @@ import {
   splitTaggedThinking,
 } from "./lib/streaming";
 import type {
-  ApiMessage,
   AuthMode,
   ChatMode,
   ChatSessionSummary,
@@ -68,7 +67,7 @@ export function useChatController() {
   const [authError, setAuthError] = useState("");
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [chatSessions, setChatSessions] = useState<ChatSessionSummary[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const [providerLabel, setProviderLabel] = useState("Checking backend");
@@ -141,17 +140,6 @@ export function useChatController() {
 
     return message ? extractHtmlPreview(message.content, message.id) : null;
   }, [activeHtmlPreviewMessageId, messages]);
-
-  const apiMessages = useMemo<ApiMessage[]>(
-    () =>
-      messages
-        .filter((message) => message.status !== "pending")
-        .map((message) => ({
-          role: message.role,
-          content: message.content,
-        })),
-    [messages],
-  );
 
   const getAuthHeaders = useCallback((token = authToken): Record<string, string> => {
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -460,8 +448,6 @@ export function useChatController() {
       content: "Thinking",
       status: "pending",
     };
-    const nextMessages = [...apiMessages, userMessage];
-
     isMessageListAtBottomRef.current = true;
     setShowScrollToBottom(false);
     setMessages((current) => [...current, userMessage, pendingMessage]);
@@ -474,9 +460,13 @@ export function useChatController() {
         selectedMode === "agent" ? "/api/agent" : "/api/chat",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
           body: JSON.stringify({
-            messages: nextMessages,
+            session_id: activeSessionId,
+            message: userMessage.content,
             model: selectedModel || undefined,
           }),
         },
@@ -694,7 +684,7 @@ export function useChatController() {
     }
   }
 
-  async function loadChatSession(sessionId: number) {
+  async function loadChatSession(sessionId: string) {
     if (!authToken) {
       return;
     }

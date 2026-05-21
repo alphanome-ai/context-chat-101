@@ -5,6 +5,7 @@ import hmac
 import json
 import secrets
 from datetime import UTC, datetime
+from uuid import UUID
 
 PASSWORD_ALGORITHM = "pbkdf2_sha256"
 PASSWORD_ITERATIONS = 210_000
@@ -70,7 +71,7 @@ def _json_bytes(value: dict) -> bytes:
     return json.dumps(value, separators=(",", ":"), sort_keys=True).encode("utf-8")
 
 
-def create_jwt_token(*, user_id: int, expires_at: datetime, secret: str) -> str:
+def create_jwt_token(*, user_id: str, expires_at: datetime, secret: str) -> str:
     header = {"alg": JWT_ALGORITHM, "typ": JWT_TYPE}
     now = datetime.now(UTC)
     payload = {
@@ -85,7 +86,7 @@ def create_jwt_token(*, user_id: int, expires_at: datetime, secret: str) -> str:
     return f"{encoded_header}.{encoded_payload}.{_base64url_encode(signature)}"
 
 
-def decode_jwt_token(token: str, *, secret: str) -> int:
+def decode_jwt_token(token: str, *, secret: str) -> str:
     try:
         token_parts = token.split(".")
         if len(token_parts) != 3:
@@ -120,7 +121,11 @@ def decode_jwt_token(token: str, *, secret: str) -> int:
         raise JWTError("Token has expired")
 
     subject = payload.get("sub")
-    if not isinstance(subject, str) or not subject.isdigit():
+    if not isinstance(subject, str):
         raise JWTError("Invalid token subject")
+    try:
+        UUID(subject)
+    except ValueError as exc:
+        raise JWTError("Invalid token subject") from exc
 
-    return int(subject)
+    return subject
