@@ -90,7 +90,7 @@
 .scroll-bottom-button {
   position: absolute;
   right: max(24px, calc((100% - min(100%, 920px)) / 2 + 10px));
-  bottom: 92px;
+  bottom: 120px;
   display: inline-flex;
   width: 34px;
   height: 34px;

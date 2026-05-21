@@ -40,6 +40,7 @@ export async function POST(request: Request) {
       temperature: body.temperature ?? 0.2,
     }),
     cache: "no-store",
+    signal: request.signal,
   });
 
   const responseBody = await upstreamResponse.text();

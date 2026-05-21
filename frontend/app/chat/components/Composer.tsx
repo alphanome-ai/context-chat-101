@@ -30,6 +30,7 @@ type ComposerProps = {
   onOpenDraftEditorChange: (isOpen: boolean) => void;
   onOpenPickerChange: (menu: PickerMenu | null) => void;
   onSendMessage: (content: string) => void;
+  onStopStreaming: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 };
 
@@ -56,6 +57,7 @@ export function Composer({
   onOpenDraftEditorChange,
   onOpenPickerChange,
   onSendMessage,
+  onStopStreaming,
   onSubmit,
 }: ComposerProps) {
   const hasSessionUsage = sessionTokenUsage.totalTokens > 0;
@@ -216,14 +218,26 @@ export function Composer({
         >
           <span aria-hidden="true" />
         </button>
-        <button
-          className="send-button"
-          type="submit"
-          aria-label="Send message"
-          disabled={!canSend}
-        >
-          <span aria-hidden="true" className="arrow-up" />
-        </button>
+        {isSending ? (
+          <button
+            className="stop-button"
+            type="button"
+            aria-label="Stop streaming"
+            title="Stop streaming"
+            onClick={onStopStreaming}
+          >
+            <span aria-hidden="true" className="stop-icon" />
+          </button>
+        ) : (
+          <button
+            className="send-button"
+            type="submit"
+            aria-label="Send message"
+            disabled={!canSend}
+          >
+            <span aria-hidden="true" className="arrow-up" />
+          </button>
+        )}
       </form>
     </div>
   );

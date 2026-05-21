@@ -77,8 +77,9 @@ export function useChatController() {
   const [selectedModel, setSelectedModel] = useState("");
   const [selectedMode, setSelectedMode] = useState<ChatMode>("chat");
   const [openPicker, setOpenPicker] = useState<PickerMenu | null>(null);
-  const [activeHtmlPreviewMessageId, setActiveHtmlPreviewMessageId] =
-    useState<string | null>(null);
+  const [activeHtmlPreviewMessageId, setActiveHtmlPreviewMessageId] = useState<
+    string | null
+  >(null);
   const [expandedMessageIds, setExpandedMessageIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -94,13 +95,15 @@ export function useChatController() {
     null,
   );
   const isMessageListAtBottomRef = useRef(true);
+  const activeStreamAbortControllerRef = useRef<AbortController | null>(null);
 
   const canSend = draft.trim().length > 0 && !isSending;
   const hasMessages = messages.length > 0;
   const isDarkMode = theme === "dark";
   const isAuthenticated = Boolean(currentUser && authToken);
   const selectedModeLabel =
-    chatModeOptions.find((option) => option.id === selectedMode)?.label ?? "Chat";
+    chatModeOptions.find((option) => option.id === selectedMode)?.label ??
+    "Chat";
   const selectedModelOption = llmOptions.find(
     (option) => option.id === selectedModel,
   );
@@ -141,69 +144,76 @@ export function useChatController() {
     return message ? extractHtmlPreview(message.content, message.id) : null;
   }, [activeHtmlPreviewMessageId, messages]);
 
-  const getAuthHeaders = useCallback((token = authToken): Record<string, string> => {
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }, [authToken]);
+  const getAuthHeaders = useCallback(
+    (token = authToken): Record<string, string> => {
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    },
+    [authToken],
+  );
 
-  const loadChatSessions = useCallback(async (token = authToken) => {
-    if (!token) {
-      setChatSessions([]);
-      return;
-    }
-
-    setIsHistoryLoading(true);
-    setHistoryError("");
-
-    try {
-      const response = await fetch("/api/chat-sessions", {
-        headers: getAuthHeaders(token),
-      });
-      const rawData = await readJsonResponse(response);
-
-      if (!response.ok) {
-        throw new Error(
-          getApiErrorMessage(rawData, "Could not load chat history."),
-        );
+  const loadChatSessions = useCallback(
+    async (token = authToken) => {
+      if (!token) {
+        setChatSessions([]);
+        return;
       }
 
-      const data = chatSessionSummariesSchema.parse(rawData);
-      setChatSessions(data);
-    } catch (error) {
-      setHistoryError(getErrorMessage(error));
-    } finally {
-      setIsHistoryLoading(false);
-    }
-  }, [authToken, getAuthHeaders]);
+      setIsHistoryLoading(true);
+      setHistoryError("");
 
-  const loadAuthenticatedUser = useCallback(async (token: string) => {
-    setIsAuthLoading(true);
-    setAuthError("");
+      try {
+        const response = await fetch("/api/chat-sessions", {
+          headers: getAuthHeaders(token),
+        });
+        const rawData = await readJsonResponse(response);
 
-    try {
-      const response = await fetch("/api/auth/me", {
-        headers: getAuthHeaders(token),
-      });
-      const rawData = await readJsonResponse(response);
+        if (!response.ok) {
+          throw new Error(
+            getApiErrorMessage(rawData, "Could not load chat history."),
+          );
+        }
 
-      if (!response.ok) {
-        throw new Error(
-          getApiErrorMessage(rawData, "Please sign in again."),
-        );
+        const data = chatSessionSummariesSchema.parse(rawData);
+        setChatSessions(data);
+      } catch (error) {
+        setHistoryError(getErrorMessage(error));
+      } finally {
+        setIsHistoryLoading(false);
       }
+    },
+    [authToken, getAuthHeaders],
+  );
 
-      const data = userSchema.parse(rawData);
-      setCurrentUser(data);
-      await loadChatSessions(token);
-    } catch {
-      window.localStorage.removeItem(AUTH_TOKEN_KEY);
-      setAuthToken("");
-      setCurrentUser(null);
-      setChatSessions([]);
-      setActiveSessionId(null);
-    } finally {
-      setIsAuthLoading(false);
-    }
-  }, [getAuthHeaders, loadChatSessions]);
+  const loadAuthenticatedUser = useCallback(
+    async (token: string) => {
+      setIsAuthLoading(true);
+      setAuthError("");
+
+      try {
+        const response = await fetch("/api/auth/me", {
+          headers: getAuthHeaders(token),
+        });
+        const rawData = await readJsonResponse(response);
+
+        if (!response.ok) {
+          throw new Error(getApiErrorMessage(rawData, "Please sign in again."));
+        }
+
+        const data = userSchema.parse(rawData);
+        setCurrentUser(data);
+        await loadChatSessions(token);
+      } catch {
+        window.localStorage.removeItem(AUTH_TOKEN_KEY);
+        setAuthToken("");
+        setCurrentUser(null);
+        setChatSessions([]);
+        setActiveSessionId(null);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    },
+    [getAuthHeaders, loadChatSessions],
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -317,6 +327,7 @@ export function useChatController() {
       if (copyFeedbackTimeoutRef.current) {
         clearTimeout(copyFeedbackTimeoutRef.current);
       }
+      activeStreamAbortControllerRef.current?.abort();
     };
   }, []);
 
@@ -384,7 +395,10 @@ export function useChatController() {
     setShowScrollToBottom(false);
   }
 
-  async function persistChatTurn(userMessage: Message, assistantMessage: Message) {
+  async function persistChatTurn(
+    userMessage: Message,
+    assistantMessage: Message,
+  ) {
     if (!authToken || !currentUser) {
       return;
     }
@@ -433,10 +447,11 @@ export function useChatController() {
   }
 
   async function sendMessage(content: string) {
-    if (!content) {
+    if (!content || isSending) {
       return;
     }
 
+    const abortController = new AbortController();
     const userMessage: Message = {
       id: createMessageId(),
       role: "user",
@@ -454,6 +469,11 @@ export function useChatController() {
     setDraft("");
     setIsDraftEditorOpen(false);
     setIsSending(true);
+    activeStreamAbortControllerRef.current = abortController;
+
+    let latestAssistantContent = "";
+    let latestThinking = "";
+    let latestTokenUsage: TokenUsage | undefined;
 
     try {
       const response = await fetch(
@@ -469,6 +489,7 @@ export function useChatController() {
             message: userMessage.content,
             model: selectedModel || undefined,
           }),
+          signal: abortController.signal,
         },
       );
       const contentType = response.headers.get("Content-Type") ?? "";
@@ -483,11 +504,18 @@ export function useChatController() {
       let assistantContent = "";
       let thinking = "";
       let tokenUsage: TokenUsage | undefined;
+      let wasStopped = false;
 
       if (contentType.includes("text/event-stream")) {
         const streamedMessage = await readStreamingAssistantResponse(
           response,
           (nextMessage) => {
+            latestAssistantContent =
+              nextMessage.content === "Thinking" && nextMessage.thinking
+                ? ""
+                : nextMessage.content;
+            latestThinking = nextMessage.thinking ?? "";
+            latestTokenUsage = nextMessage.tokenUsage;
             setMessages((current) =>
               current.map((message) =>
                 message.id === pendingMessage.id
@@ -502,11 +530,13 @@ export function useChatController() {
               ),
             );
           },
+          { signal: abortController.signal },
         );
 
         assistantContent = streamedMessage.content;
         thinking = streamedMessage.thinking ?? "";
         tokenUsage = streamedMessage.tokenUsage;
+        wasStopped = streamedMessage.stopped;
       } else {
         const rawData = await readJsonResponse(response);
         const data = chatCompletionResponseSchema.parse(rawData);
@@ -523,7 +553,11 @@ export function useChatController() {
 
       const assistantMessageForHistory: Message = {
         ...pendingMessage,
-        content: assistantContent || "No visible answer returned.",
+        content:
+          assistantContent ||
+          (wasStopped
+            ? "Stopped before a response was received."
+            : "No visible answer returned."),
         thinking: thinking || undefined,
         tokenUsage,
         status: undefined,
@@ -543,6 +577,32 @@ export function useChatController() {
         setHistoryError(getErrorMessage(error));
       }
     } catch (error) {
+      if (abortController.signal.aborted) {
+        const stoppedAssistantMessage: Message = {
+          ...pendingMessage,
+          content:
+            latestAssistantContent || "Stopped before a response was received.",
+          thinking: latestThinking || undefined,
+          tokenUsage: latestTokenUsage,
+          status: undefined,
+        };
+
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === pendingMessage.id
+              ? stoppedAssistantMessage
+              : message,
+          ),
+        );
+
+        try {
+          await persistChatTurn(userMessage, stoppedAssistantMessage);
+        } catch (persistError) {
+          setHistoryError(getErrorMessage(persistError));
+        }
+        return;
+      }
+
       setMessages((current) =>
         current.map((message) =>
           message.id === pendingMessage.id
@@ -555,8 +615,15 @@ export function useChatController() {
         ),
       );
     } finally {
+      if (activeStreamAbortControllerRef.current === abortController) {
+        activeStreamAbortControllerRef.current = null;
+      }
       setIsSending(false);
     }
+  }
+
+  function stopStreaming() {
+    activeStreamAbortControllerRef.current?.abort();
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -664,7 +731,10 @@ export function useChatController() {
 
       if (!response.ok) {
         throw new Error(
-          getApiErrorMessage(rawData, "Could not authenticate with those credentials."),
+          getApiErrorMessage(
+            rawData,
+            "Could not authenticate with those credentials.",
+          ),
         );
       }
 
@@ -847,6 +917,7 @@ export function useChatController() {
       setOpenPicker,
       signOut,
       startNewChat,
+      stopStreaming,
       toggleMessageExpansion,
       toggleTheme,
     },

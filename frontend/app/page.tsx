@@ -127,6 +127,7 @@ export default function Home() {
               onOpenDraftEditorChange={actions.setIsDraftEditorOpen}
               onOpenPickerChange={actions.setOpenPicker}
               onSendMessage={actions.sendMessage}
+              onStopStreaming={actions.stopStreaming}
               onSubmit={actions.handleSubmit}
             />
           </section>
