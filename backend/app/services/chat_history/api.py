@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, DbSession
+from app.core.transcripts import append_chat_session_messages_jsonl
 from app.db.models import ChatMessage, ChatSession, utc_now
 
 router = APIRouter()
@@ -16,11 +17,15 @@ class ChatMessageCreate(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(min_length=1)
     thinking: str | None = None
+    input_tokens: int | None = Field(default=None, ge=0)
+    output_tokens: int | None = Field(default=None, ge=0)
+    total_tokens: int | None = Field(default=None, ge=0)
 
 
 class ChatSessionCreate(BaseModel):
     title: str | None = Field(default=None, max_length=160)
     model: str | None = Field(default=None, max_length=120)
+    mode: Literal["chat", "agent"] = "chat"
     messages: list[ChatMessageCreate] = Field(default_factory=list)
 
 
@@ -34,6 +39,9 @@ class ChatMessageResponse(BaseModel):
     role: str
     content: str
     thinking: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_tokens: int | None = None
     position: int
     created_at: datetime
 
@@ -41,18 +49,20 @@ class ChatMessageResponse(BaseModel):
 
 
 class ChatSessionSummary(BaseModel):
-    id: int
+    id: str
     title: str
     model: str | None = None
+    mode: Literal["chat", "agent"] = "chat"
     created_at: datetime
     updated_at: datetime
     message_count: int
 
 
 class ChatSessionResponse(BaseModel):
-    id: int
+    id: str
     title: str
     model: str | None = None
+    mode: Literal["chat", "agent"] = "chat"
     created_at: datetime
     updated_at: datetime
     messages: list[ChatMessageResponse]
@@ -71,7 +81,7 @@ def _make_title(messages: list[ChatMessageCreate], fallback: str | None) -> str:
     return title[:80]
 
 
-def _get_user_session(db: DbSession, user_id: int, session_id: int) -> ChatSession:
+def _get_user_session(db: DbSession, user_id: str, session_id: str) -> ChatSession:
     chat_session = db.scalar(
         select(ChatSession)
         .options(selectinload(ChatSession.messages))
@@ -87,24 +97,30 @@ def _append_messages(
     db: DbSession,
     chat_session: ChatSession,
     messages: list[ChatMessageCreate],
-) -> None:
+) -> list[ChatMessage]:
     max_position = db.scalar(
         select(func.max(ChatMessage.position)).where(ChatMessage.session_id == chat_session.id)
     )
     next_position = max_position + 1 if max_position is not None else 0
 
+    persisted_messages: list[ChatMessage] = []
     for offset, message in enumerate(messages):
-        db.add(
-            ChatMessage(
-                session_id=chat_session.id,
-                role=message.role,
-                content=message.content,
-                thinking=message.thinking.strip() if message.thinking else None,
-                position=next_position + offset,
-            )
+        chat_message = ChatMessage(
+            session_id=chat_session.id,
+            role=message.role,
+            content=message.content,
+            thinking=message.thinking.strip() if message.thinking else None,
+            input_tokens=message.input_tokens,
+            output_tokens=message.output_tokens,
+            total_tokens=message.total_tokens,
+            position=next_position + offset,
         )
+        persisted_messages.append(chat_message)
+        db.add(chat_message)
 
     chat_session.updated_at = utc_now()
+    db.flush()
+    return persisted_messages
 
 
 @router.get("", response_model=list[ChatSessionSummary])
@@ -122,6 +138,7 @@ def list_chat_sessions(current_user: CurrentUser, db: DbSession) -> list[ChatSes
             id=chat_session.id,
             title=chat_session.title,
             model=chat_session.model,
+            mode=chat_session.mode,
             created_at=chat_session.created_at,
             updated_at=chat_session.updated_at,
             message_count=message_count,
@@ -131,7 +148,7 @@ def list_chat_sessions(current_user: CurrentUser, db: DbSession) -> list[ChatSes
 
 
 @router.post("", response_model=ChatSessionResponse, status_code=status.HTTP_201_CREATED)
-def create_chat_session(
+async def create_chat_session(
     payload: ChatSessionCreate,
     current_user: CurrentUser,
     db: DbSession,
@@ -140,25 +157,29 @@ def create_chat_session(
         user_id=current_user.id,
         title=_make_title(payload.messages, payload.title),
         model=payload.model,
+        mode=payload.mode,
     )
     db.add(chat_session)
     db.flush()
 
+    appended_messages: list[ChatMessage] = []
     if payload.messages:
-        _append_messages(db, chat_session, payload.messages)
+        appended_messages = _append_messages(db, chat_session, payload.messages)
 
     db.commit()
+    if appended_messages:
+        await append_chat_session_messages_jsonl(chat_session, appended_messages)
     return _get_user_session(db, current_user.id, chat_session.id)
 
 
 @router.get("/{session_id}", response_model=ChatSessionResponse)
-def get_chat_session(session_id: int, current_user: CurrentUser, db: DbSession) -> ChatSession:
+def get_chat_session(session_id: str, current_user: CurrentUser, db: DbSession) -> ChatSession:
     return _get_user_session(db, current_user.id, session_id)
 
 
 @router.post("/{session_id}/messages", response_model=ChatSessionResponse)
-def add_chat_messages(
-    session_id: int,
+async def add_chat_messages(
+    session_id: str,
     payload: ChatMessagesCreate,
     current_user: CurrentUser,
     db: DbSession,
@@ -166,13 +187,14 @@ def add_chat_messages(
     chat_session = _get_user_session(db, current_user.id, session_id)
     if payload.model:
         chat_session.model = payload.model
-    _append_messages(db, chat_session, payload.messages)
+    appended_messages = _append_messages(db, chat_session, payload.messages)
     db.commit()
+    await append_chat_session_messages_jsonl(chat_session, appended_messages)
     return _get_user_session(db, current_user.id, session_id)
 
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_chat_session(session_id: int, current_user: CurrentUser, db: DbSession) -> Response:
+def delete_chat_session(session_id: str, current_user: CurrentUser, db: DbSession) -> Response:
     chat_session = _get_user_session(db, current_user.id, session_id)
     db.delete(chat_session)
     db.commit()

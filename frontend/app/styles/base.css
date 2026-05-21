@@ -1,0 +1,52 @@
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-system-sans);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.chat-shell {
+  min-height: 100svh;
+  background: var(--background);
+}
+
+.icon-button,
+.back-button,
+.send-button,
+.new-chat-button,
+.theme-toggle,
+.starter-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  cursor: pointer;
+}

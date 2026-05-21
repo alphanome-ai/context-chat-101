@@ -2,7 +2,7 @@ import json
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,12 +29,10 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./context_chat.db"
     auth_session_days: int = 30
+    auth_jwt_secret: str = "dev-auth-jwt-secret-change-me"
 
-    llm_provider_name: str = "Default LLM"
     llm_base_url: str = ""
     llm_api_key: str = ""
-    llm_default_model: str = "gpt-4o-mini"
-    llm_available_models: list[str] = Field(default_factory=lambda: ["gpt-4o-mini"])
 
     @field_validator("debug", mode="before")
     @classmethod
@@ -47,7 +45,7 @@ class Settings(BaseSettings):
                 return False
         return value
 
-    @field_validator("cors_origins", "trusted_hosts", "llm_available_models", mode="before")
+    @field_validator("cors_origins", "trusted_hosts", mode="before")
     @classmethod
     def parse_env_list(cls, value: object) -> object:
         if isinstance(value, str):
@@ -61,12 +59,6 @@ class Settings(BaseSettings):
                     pass
             return [item.strip() for item in normalized.split(",") if item.strip()]
         return value
-
-    @model_validator(mode="after")
-    def include_default_llm_model(self) -> "Settings":
-        if self.llm_default_model and self.llm_default_model not in self.llm_available_models:
-            self.llm_available_models.insert(0, self.llm_default_model)
-        return self
 
 
 @lru_cache

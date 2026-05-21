@@ -11,5 +11,16 @@ wheels/
 .env.*
 !.env.example
 
+# Local SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
 # Virtual environments
 .venv
+
+# others
+.mypy_cache
+.ruff_cache
+.pytest_cache
+.uv-cache

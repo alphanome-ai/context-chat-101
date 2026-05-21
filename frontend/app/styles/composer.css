@@ -1,0 +1,423 @@
+.composer-wrap {
+  position: relative;
+  width: min(100%, 900px);
+}
+
+.session-token-usage {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px auto;
+  overflow: hidden;
+  border: 1px solid var(--composer-border);
+  border-radius: 8px;
+  background: var(--control-bg);
+  color: var(--text-body);
+  font-size: 12px;
+  line-height: 1;
+  padding: 7px 9px;
+  box-shadow: var(--shadow-soft);
+}
+
+.session-token-usage span,
+.session-token-usage small {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-token-usage strong {
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.session-token-usage small {
+  font-size: 11px;
+}
+
+.draft-editor-panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  left: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--composer-border);
+  border-radius: 13px;
+  background: var(--composer-bg);
+  box-shadow:
+    0 18px 45px rgba(16, 24, 40, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.draft-editor-header,
+.draft-editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--composer-border);
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 560;
+  padding: 10px 12px;
+}
+
+.draft-editor-footer {
+  border-top: 1px solid var(--composer-border);
+  border-bottom: 0;
+}
+
+.draft-editor-input {
+  width: 100%;
+  min-height: 190px;
+  max-height: min(42svh, 360px);
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--input-text);
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: 0;
+  line-height: 1.5;
+  overflow-y: auto;
+  padding: 14px 15px;
+  resize: none;
+}
+
+.draft-editor-close,
+.draft-editor-send {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--composer-border);
+  border-radius: 7px;
+  background: var(--control-bg);
+  color: var(--text-body);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 560;
+  padding: 0 10px;
+}
+
+.draft-editor-close:hover,
+.draft-editor-send:hover {
+  background: var(--control-hover);
+}
+
+.draft-editor-send {
+  border-color: var(--send-bg);
+  background: var(--send-bg);
+  color: var(--send-text);
+}
+
+.draft-editor-send:not(:disabled):hover {
+  border-color: var(--send-hover);
+  background: var(--send-hover);
+}
+
+.draft-editor-send:disabled {
+  cursor: default;
+  border-color: var(--send-disabled);
+  background: var(--send-disabled);
+  color: var(--control-bg);
+}
+
+.composer {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 48px;
+  border: 1px solid var(--composer-border);
+  border-radius: 13px;
+  background: var(--composer-bg);
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.04),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.mode-picker,
+.model-picker {
+  display: flex;
+  position: relative;
+  min-width: 0;
+  align-items: center;
+  height: 100%;
+  border-right: 1px solid var(--composer-border);
+}
+
+.mode-picker {
+  flex: 0 1 88px;
+}
+
+.model-picker {
+  flex: 0 1 172px;
+}
+
+.picker-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-body);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0 24px 0 12px;
+}
+
+.picker-trigger-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.picker-label,
+.picker-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 520;
+  line-height: 1;
+}
+
+.picker-value {
+  line-height: 1;
+}
+
+.mode-picker .picker-trigger {
+  font-weight: 620;
+}
+
+.picker-trigger:disabled {
+  cursor: default;
+  color: var(--placeholder);
+  opacity: 1;
+}
+
+.picker-chevron {
+  position: absolute;
+  right: 11px;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.picker-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 8px;
+  z-index: 5;
+  display: flex;
+  width: max-content;
+  min-width: calc(100% - 16px);
+  max-width: min(300px, calc(100vw - 32px));
+  max-height: 230px;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  border: 1px solid var(--composer-border);
+  border-radius: 8px;
+  background: var(--control-bg);
+  padding: 4px;
+  box-shadow: 0 12px 30px rgba(16, 24, 40, 0.16);
+}
+
+.model-menu {
+  min-width: 220px;
+}
+
+.picker-option {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 3px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-body);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.2;
+  padding: 8px 9px;
+  text-align: left;
+}
+
+.picker-option span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-option:hover,
+.picker-option.selected {
+  background: var(--control-hover);
+}
+
+.picker-option small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer textarea {
+  height: 46px;
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--input-text);
+  font-size: 12px;
+  letter-spacing: 0;
+  line-height: 1.45;
+  overflow: hidden;
+  padding: 15px 12px 13px 18px;
+  resize: none;
+}
+
+.composer textarea::placeholder {
+  color: var(--placeholder);
+  opacity: 1;
+}
+
+.composer textarea:disabled {
+  color: var(--placeholder);
+}
+
+.send-button {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  margin: 0 8px 0 4px;
+  border-radius: 999px;
+  background: var(--send-bg);
+  color: var(--send-text);
+  box-shadow: var(--shadow-send);
+  transition:
+    background 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.send-button:not(:disabled):hover {
+  background: var(--send-hover);
+  box-shadow: var(--shadow-send-hover);
+}
+
+.send-button:not(:disabled):active {
+  transform: scale(0.95);
+}
+
+.send-button:disabled {
+  cursor: default;
+  background: var(--send-disabled);
+  box-shadow: none;
+  color: var(--control-bg);
+}
+
+.draft-expand-button {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border: 1px solid var(--composer-border);
+  border-radius: 999px;
+  background: var(--control-bg);
+  color: var(--text-soft);
+}
+
+.draft-expand-button:hover,
+.draft-expand-button[aria-pressed="true"] {
+  background: var(--control-hover);
+  color: var(--text-body);
+}
+
+.draft-expand-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.draft-expand-button span::before,
+.draft-expand-button span::after {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-color: currentColor;
+  content: "";
+}
+
+.draft-expand-button span::before {
+  top: 8px;
+  right: 8px;
+  border-top: 1.6px solid;
+  border-right: 1.6px solid;
+}
+
+.draft-expand-button span::after {
+  bottom: 8px;
+  left: 8px;
+  border-bottom: 1.6px solid;
+  border-left: 1.6px solid;
+}
+
+.arrow-up {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  translate: 0 1px;
+  rotate: 0deg;
+}
+
+.arrow-up::before,
+.arrow-up::after {
+  position: absolute;
+  left: 50%;
+  content: "";
+}
+
+.arrow-up::before {
+  top: 2px;
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  border-radius: 1px;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.arrow-up::after {
+  top: 3px;
+  width: 2px;
+  height: 10px;
+  border-radius: 999px;
+  background: currentColor;
+  transform: translateX(-50%);
+}
