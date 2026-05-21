@@ -34,7 +34,7 @@ export type ApiMessage = {
 export type ProviderStatus = "checking" | "online" | "offline";
 export type Theme = "light" | "dark";
 export type AuthMode = "login" | "register";
-export type ChatMode = "chat";
+export type ChatMode = "chat" | "agent";
 export type PickerMenu = "mode" | "model";
 
 export type LlmOption = {

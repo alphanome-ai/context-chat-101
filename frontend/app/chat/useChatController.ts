@@ -403,6 +403,7 @@ export function useChatController() {
 
     const payload = {
       model: selectedModel || undefined,
+      ...(activeSessionId ? {} : { mode: selectedMode }),
       messages: [
         {
           role: userMessage.role,
@@ -469,14 +470,17 @@ export function useChatController() {
     setIsSending(true);
 
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: nextMessages,
-          model: selectedModel || undefined,
-        }),
-      });
+      const response = await fetch(
+        selectedMode === "agent" ? "/api/agent" : "/api/chat",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: nextMessages,
+            model: selectedModel || undefined,
+          }),
+        },
+      );
       const contentType = response.headers.get("Content-Type") ?? "";
 
       if (!response.ok) {
@@ -712,6 +716,7 @@ export function useChatController() {
 
       const data = storedChatSessionSchema.parse(rawData);
       setActiveSessionId(data.id);
+      setSelectedMode(data.mode);
       resetConversationUi();
       setMessages(
         data.messages.map((message) => ({
@@ -763,6 +768,12 @@ export function useChatController() {
   }
 
   function handleModeChange(mode: ChatMode) {
+    if (mode !== selectedMode && messages.length > 0) {
+      setMessages([]);
+      setDraft("");
+      setActiveSessionId(null);
+      resetConversationUi();
+    }
     setSelectedMode(mode);
     setOpenPicker(null);
   }

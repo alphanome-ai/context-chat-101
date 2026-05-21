@@ -1,10 +1,12 @@
 import unittest
+import asyncio
 from collections.abc import AsyncIterator
 from unittest.mock import patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.core.chat import ChatService
 from app.core.llm.base import BaseChatModel
 from app.core.llm.errors import LLMModelError
 from app.core.llm.registry import LLMRegistry, ModelDefinition, ProviderDefinition
@@ -17,7 +19,9 @@ from app.core.llm.schemas import (
     InferenceRequest,
     StreamChoice,
 )
-from app.services.llm.api.v1 import router
+from app.services.agent.api.v1 import router as agent_router
+from app.services.chat.api.v1 import router as chat_router
+from app.services.llm.api.v1 import router as llm_router
 
 
 class FakeChatModel(BaseChatModel):
@@ -64,7 +68,7 @@ class StreamErrorChatModel(FakeChatModel):
         return _iterator()
 
 
-def make_test_client() -> TestClient:
+def make_test_client(router) -> TestClient:
     app = FastAPI()
     app.include_router(router)
     return TestClient(app)
@@ -99,7 +103,7 @@ def make_registry() -> LLMRegistry:
 
 class LLMApiTests(unittest.TestCase):
     def test_providers_endpoint_lists_registry_models(self) -> None:
-        client = make_test_client()
+        client = make_test_client(llm_router)
 
         with patch("app.services.llm.api.v1.get_llm_registry", return_value=make_registry()):
             response = client.get("/providers")
@@ -116,13 +120,13 @@ class LLMApiTests(unittest.TestCase):
                         "models": [
                             {
                                 "id": "fake-default",
-                                "name": "Fake Default",
+                                "name": "Fake Default Display",
                                 "displayName": "Fake Default Display",
                                 "isDefault": True,
                             },
                             {
                                 "id": "fake-other",
-                                "name": "Fake Other",
+                                "name": "Fake Other Display",
                                 "displayName": "Fake Other Display",
                                 "isDefault": False,
                             },
@@ -133,11 +137,11 @@ class LLMApiTests(unittest.TestCase):
         )
 
     def test_non_streaming_completion_returns_fake_model_response(self) -> None:
-        client = make_test_client()
+        client = make_test_client(chat_router)
 
-        with patch("app.services.llm.api.v1.get_llm_registry", return_value=make_registry()):
+        with patch("app.core.chat.service.get_llm_registry", return_value=make_registry()):
             response = client.post(
-                "/chat",
+                "/run",
                 json={
                     "model": "default",
                     "messages": [{"role": "user", "content": "hello"}],
@@ -154,11 +158,11 @@ class LLMApiTests(unittest.TestCase):
         )
 
     def test_unknown_model_returns_structured_error(self) -> None:
-        client = make_test_client()
+        client = make_test_client(chat_router)
 
-        with patch("app.services.llm.api.v1.get_llm_registry", return_value=make_registry()):
+        with patch("app.core.chat.service.get_llm_registry", return_value=make_registry()):
             response = client.post(
-                "/chat",
+                "/run",
                 json={
                     "model": "missing-model",
                     "messages": [{"role": "user", "content": "hello"}],
@@ -171,12 +175,12 @@ class LLMApiTests(unittest.TestCase):
         self.assertEqual(response.json()["error"]["message"], "Unsupported model: missing-model")
 
     def test_streaming_completion_wraps_chunks_as_sse(self) -> None:
-        client = make_test_client()
+        client = make_test_client(chat_router)
 
-        with patch("app.services.llm.api.v1.get_llm_registry", return_value=make_registry()):
+        with patch("app.core.chat.service.get_llm_registry", return_value=make_registry()):
             with client.stream(
                 "POST",
-                "/chat",
+                "/run",
                 json={
                     "model": "fake-other",
                     "messages": [{"role": "user", "content": "hello"}],
@@ -192,7 +196,6 @@ class LLMApiTests(unittest.TestCase):
         self.assertTrue(body.endswith("data: [DONE]\n\n"))
 
     def test_streaming_completion_wraps_stream_errors_as_sse(self) -> None:
-        client = make_test_client()
         registry = LLMRegistry(
             (
                 ProviderDefinition(
@@ -205,10 +208,12 @@ class LLMApiTests(unittest.TestCase):
             )
         )
 
-        with patch("app.services.llm.api.v1.get_llm_registry", return_value=registry):
+        client = make_test_client(chat_router)
+
+        with patch("app.core.chat.service.get_llm_registry", return_value=registry):
             with client.stream(
                 "POST",
-                "/chat",
+                "/run",
                 json={
                     "model": "fake-error",
                     "messages": [{"role": "user", "content": "hello"}],
@@ -222,6 +227,39 @@ class LLMApiTests(unittest.TestCase):
         self.assertIn('"message":"Upstream streaming failed"', body)
         self.assertIn('"code":"UPSTREAM_ERROR"', body)
         self.assertTrue(body.endswith("data: [DONE]\n\n"))
+
+    def test_chat_service_resolves_model_before_delegating_to_adapter(self) -> None:
+        response = asyncio.run(
+            ChatService(make_registry()).run(
+                InferenceRequest(
+                    model="default",
+                    messages=[{"role": "user", "content": "hello"}],
+                    stream=False,
+                )
+            )
+        )
+
+        self.assertIsInstance(response, ChatCompletionResponse)
+        self.assertEqual(response.model, "fake-default")
+
+    def test_agent_run_returns_not_implemented_error(self) -> None:
+        client = make_test_client(agent_router)
+
+        response = client.post(
+            "/run",
+            json={
+                "model": "default",
+                "messages": [{"role": "user", "content": "hello"}],
+                "stream": True,
+            },
+        )
+
+        self.assertEqual(response.status_code, 501)
+        self.assertEqual(response.json()["error"]["code"], "AGENT_NOT_IMPLEMENTED")
+        self.assertEqual(
+            response.json()["error"]["message"],
+            "Agent mode is not implemented yet.",
+        )
 
 
 if __name__ == "__main__":

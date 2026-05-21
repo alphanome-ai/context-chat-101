@@ -81,6 +81,7 @@ export const chatSessionSummarySchema = z.object({
   id: z.number(),
   title: z.string(),
   model: z.string().nullable().optional(),
+  mode: z.enum(["chat", "agent"]).default("chat"),
   created_at: z.string(),
   updated_at: z.string(),
   message_count: z.number(),
@@ -90,6 +91,7 @@ export const chatSessionDetailSchema = z.object({
   id: z.number(),
   title: z.string(),
   model: z.string().nullable().optional(),
+  mode: z.enum(["chat", "agent"]).default("chat"),
   created_at: z.string(),
   updated_at: z.string(),
 });

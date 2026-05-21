@@ -24,6 +24,7 @@ class ChatMessageCreate(BaseModel):
 class ChatSessionCreate(BaseModel):
     title: str | None = Field(default=None, max_length=160)
     model: str | None = Field(default=None, max_length=120)
+    mode: Literal["chat", "agent"] = "chat"
     messages: list[ChatMessageCreate] = Field(default_factory=list)
 
 
@@ -50,6 +51,7 @@ class ChatSessionSummary(BaseModel):
     id: int
     title: str
     model: str | None = None
+    mode: Literal["chat", "agent"] = "chat"
     created_at: datetime
     updated_at: datetime
     message_count: int
@@ -59,6 +61,7 @@ class ChatSessionResponse(BaseModel):
     id: int
     title: str
     model: str | None = None
+    mode: Literal["chat", "agent"] = "chat"
     created_at: datetime
     updated_at: datetime
     messages: list[ChatMessageResponse]
@@ -131,6 +134,7 @@ def list_chat_sessions(current_user: CurrentUser, db: DbSession) -> list[ChatSes
             id=chat_session.id,
             title=chat_session.title,
             model=chat_session.model,
+            mode=chat_session.mode,
             created_at=chat_session.created_at,
             updated_at=chat_session.updated_at,
             message_count=message_count,
@@ -149,6 +153,7 @@ def create_chat_session(
         user_id=current_user.id,
         title=_make_title(payload.messages, payload.title),
         model=payload.model,
+        mode=payload.mode,
     )
     db.add(chat_session)
     db.flush()
