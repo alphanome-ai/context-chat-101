@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
-    log_level: str = "INFO"
+    log_level: str = "DEBUG"
     cors_origins: list[str] = Field(default_factory=list)
     trusted_hosts: list[str] = Field(default_factory=lambda: ["*"])
 

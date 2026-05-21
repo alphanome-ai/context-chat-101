@@ -1,10 +1,15 @@
+import time
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.chat.errors import ChatContextError
+from app.core.logging import get_app_logger
 from app.core.llm.schemas import ChatMessage
 from app.db.models import ChatMessage as StoredChatMessage
 from app.db.models import ChatSession
+
+logger = get_app_logger()
 
 
 class ChatContextManager:
@@ -18,25 +23,49 @@ class ChatContextManager:
         session_id: str | None,
         user_message: str,
     ) -> list[ChatMessage]:
+        started_at = time.perf_counter()
         messages: list[ChatMessage] = []
+        persisted_message_count = 0
+        status = "ok"
 
-        if session_id is not None:
-            chat_session = self._load_session(user_id=user_id, session_id=session_id)
-            if chat_session.mode != "chat":
-                raise ChatContextError(
-                    "This session is not a chat-mode session.",
-                    status_code=400,
-                    error_code="INVALID_CHAT_SESSION_MODE",
+        try:
+            if session_id is not None:
+                chat_session = self._load_session(user_id=user_id, session_id=session_id)
+                if chat_session.mode != "chat":
+                    raise ChatContextError(
+                        "This session is not a chat-mode session.",
+                        status_code=400,
+                        error_code="INVALID_CHAT_SESSION_MODE",
+                    )
+
+                messages.extend(
+                    context_message
+                    for message in chat_session.messages
+                    if (context_message := _to_context_message(message)) is not None
                 )
+                persisted_message_count = len(messages)
 
-            messages.extend(
-                context_message
-                for message in chat_session.messages
-                if (context_message := _to_context_message(message)) is not None
+            messages.append(ChatMessage(role="user", content=user_message))
+            return messages
+        except ChatContextError as exc:
+            status = exc.error_code
+            raise
+        except Exception:
+            status = "unexpected_error"
+            raise
+        finally:
+            elapsed_ms = (time.perf_counter() - started_at) * 1000
+            logger.debug(
+                (
+                    "chat_context_build status={} session_id={} persisted_messages={} "
+                    "output_messages={} elapsed_ms={:.2f}"
+                ),
+                status,
+                session_id or "-",
+                persisted_message_count,
+                len(messages),
+                elapsed_ms,
             )
-
-        messages.append(ChatMessage(role="user", content=user_message))
-        return messages
 
     def _load_session(self, *, user_id: str, session_id: str) -> ChatSession:
         chat_session = self._db.scalar(
