@@ -477,7 +477,7 @@ export function useChatController() {
 
     try {
       const response = await fetch(
-        selectedMode === "agent" ? "/api/agent" : "/api/chat",
+        selectedMode === "agent0" ? "/api/agent0" : "/api/chat",
         {
           method: "POST",
           headers: {

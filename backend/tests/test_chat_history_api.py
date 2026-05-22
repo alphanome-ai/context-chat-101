@@ -78,7 +78,7 @@ class ChatHistoryApiTests(unittest.TestCase):
         create_response = self.client.post(
             "/chat-sessions",
             json={
-                "mode": "agent",
+                "mode": "agent0",
                 "model": "fake-model",
                 "messages": [{"role": "user", "content": "hello"}],
             },
@@ -86,12 +86,12 @@ class ChatHistoryApiTests(unittest.TestCase):
 
         self.assertEqual(create_response.status_code, 201)
         created = create_response.json()
-        self.assertEqual(created["mode"], "agent")
+        self.assertEqual(created["mode"], "agent0")
 
         load_response = self.client.get(f"/chat-sessions/{created['id']}")
 
         self.assertEqual(load_response.status_code, 200)
-        self.assertEqual(load_response.json()["mode"], "agent")
+        self.assertEqual(load_response.json()["mode"], "agent0")
 
         transcript_path = (
             self.transcript_root / "chat" / "sessions" / str(created["id"]) / "messages"
@@ -101,7 +101,7 @@ class ChatHistoryApiTests(unittest.TestCase):
         transcript_message = json.loads(lines[0])
         self.assertEqual(transcript_message["session_id"], created["id"])
         self.assertEqual(transcript_message["user_id"], USER_ID)
-        self.assertEqual(transcript_message["mode"], "agent")
+        self.assertEqual(transcript_message["mode"], "agent0")
         self.assertEqual(transcript_message["model"], "fake-model")
         self.assertEqual(transcript_message["position"], 0)
         self.assertEqual(transcript_message["role"], "user")

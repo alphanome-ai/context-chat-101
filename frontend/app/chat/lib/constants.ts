@@ -16,5 +16,5 @@ export const PROVIDER_STATUS_POLL_INTERVAL_MS = 30_000;
 
 export const chatModeOptions: Array<{ id: ChatMode; label: string }> = [
   { id: "chat", label: "Chat" },
-  { id: "agent", label: "Agent" },
+  { id: "agent0", label: "Agent0" },
 ];

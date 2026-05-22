@@ -26,7 +26,7 @@ from app.core.llm.schemas import (
 from app.db.models import ChatMessage as StoredChatMessage
 from app.db.models import ChatSession, User
 from app.db.session import Base, get_db
-from app.services.agent.api.v1 import router as agent_router
+from app.services.agent0.api.v1 import router as agent0_router
 from app.services.chat.api.v1 import router as chat_router
 from app.services.llm.api.v1 import router as llm_router
 
@@ -359,8 +359,8 @@ class LLMApiTests(unittest.TestCase):
             ],
         )
 
-    def test_agent_run_returns_not_implemented_error(self) -> None:
-        client = make_test_client(agent_router)
+    def test_agent0_run_returns_not_implemented_error(self) -> None:
+        client = make_test_client(agent0_router)
 
         response = client.post(
             "/run",

@@ -25,7 +25,7 @@ class ChatMessageCreate(BaseModel):
 class ChatSessionCreate(BaseModel):
     title: str | None = Field(default=None, max_length=160)
     model: str | None = Field(default=None, max_length=120)
-    mode: Literal["chat", "agent"] = "chat"
+    mode: Literal["chat", "agent0"] = "chat"
     messages: list[ChatMessageCreate] = Field(default_factory=list)
 
 
@@ -52,7 +52,7 @@ class ChatSessionSummary(BaseModel):
     id: str
     title: str
     model: str | None = None
-    mode: Literal["chat", "agent"] = "chat"
+    mode: Literal["chat", "agent0"] = "chat"
     created_at: datetime
     updated_at: datetime
     message_count: int
@@ -62,7 +62,7 @@ class ChatSessionResponse(BaseModel):
     id: str
     title: str
     model: str | None = None
-    mode: Literal["chat", "agent"] = "chat"
+    mode: Literal["chat", "agent0"] = "chat"
     created_at: datetime
     updated_at: datetime
     messages: list[ChatMessageResponse]

@@ -1,16 +1,16 @@
 import { fetchBackend, getAuthHeaders } from "../_backend";
 
-type AgentRequestBody = {
+type Agent0RequestBody = {
   message?: string;
   model?: string;
   temperature?: number;
 };
 
 export async function POST(request: Request) {
-  let body: AgentRequestBody;
+  let body: Agent0RequestBody;
 
   try {
-    body = (await request.json()) as AgentRequestBody;
+    body = (await request.json()) as Agent0RequestBody;
   } catch {
     return Response.json(
       { error: { message: "Invalid JSON request body." } },
@@ -22,12 +22,12 @@ export async function POST(request: Request) {
 
   if (!message) {
     return Response.json(
-      { error: { message: "An agent message is required." } },
+      { error: { message: "An agent0 message is required." } },
       { status: 400 },
     );
   }
 
-  const upstreamResponse = await fetchBackend("/api/v1/agent/run", {
+  const upstreamResponse = await fetchBackend("/api/v1/agent0/run", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
