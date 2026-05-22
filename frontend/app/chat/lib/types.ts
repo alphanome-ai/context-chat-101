@@ -1,6 +1,7 @@
 import type { z } from "zod";
 
 import type {
+  AgentEvent,
   chatSessionSummarySchema,
   errorResponseSchema,
   userSchema,
@@ -11,6 +12,7 @@ export type Message = {
   role: "user" | "assistant";
   content: string;
   thinking?: string;
+  events?: AgentEvent[];
   tokenUsage?: TokenUsage;
   status?: "pending" | "streaming" | "error";
 };

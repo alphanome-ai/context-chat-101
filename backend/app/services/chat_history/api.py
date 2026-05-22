@@ -1,5 +1,6 @@
+import json
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -17,6 +18,7 @@ class ChatMessageCreate(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(min_length=1)
     thinking: str | None = None
+    events: list[dict[str, Any]] | None = None
     input_tokens: int | None = Field(default=None, ge=0)
     output_tokens: int | None = Field(default=None, ge=0)
     total_tokens: int | None = Field(default=None, ge=0)
@@ -39,6 +41,7 @@ class ChatMessageResponse(BaseModel):
     role: str
     content: str
     thinking: str | None = None
+    events: list[dict[str, Any]] | None = None
     input_tokens: int | None = None
     output_tokens: int | None = None
     total_tokens: int | None = None
@@ -93,6 +96,14 @@ def _get_user_session(db: DbSession, user_id: str, session_id: str) -> ChatSessi
     return chat_session
 
 
+def _events_to_jsonl(events: list[dict[str, Any]] | None) -> str | None:
+    if not events:
+        return None
+    return "\n".join(
+        json.dumps(event, ensure_ascii=False, separators=(",", ":")) for event in events
+    )
+
+
 def _append_messages(
     db: DbSession,
     chat_session: ChatSession,
@@ -110,6 +121,7 @@ def _append_messages(
             role=message.role,
             content=message.content,
             thinking=message.thinking.strip() if message.thinking else None,
+            events_json=_events_to_jsonl(message.events),
             input_tokens=message.input_tokens,
             output_tokens=message.output_tokens,
             total_tokens=message.total_tokens,

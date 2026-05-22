@@ -2,8 +2,7 @@ import { fetchBackend, getAuthHeaders } from "../_backend";
 
 type Agent0RequestBody = {
   message?: string;
-  model?: string;
-  temperature?: number;
+  session_id?: string | null;
 };
 
 export async function POST(request: Request) {
@@ -34,10 +33,8 @@ export async function POST(request: Request) {
       ...getAuthHeaders(request),
     },
     body: JSON.stringify({
-      model: body.model ?? "default",
-      messages: [{ role: "user", content: message }],
-      stream: true,
-      temperature: body.temperature ?? 0.2,
+      session_id: body.session_id ?? undefined,
+      message,
     }),
     cache: "no-store",
     signal: request.signal,

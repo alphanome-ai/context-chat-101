@@ -1,7 +1,9 @@
 import {
+  agentEventSchema,
   chatCompletionChunkSchema,
   type AssistantResponseMessage,
   type AssistantStreamChunk,
+  type AgentEvent,
   type TokenUsageResponse,
 } from "./schemas";
 import type { TokenUsage } from "./types";
@@ -75,6 +77,7 @@ export async function readStreamingAssistantResponse(
   onUpdate: (message: {
     content: string;
     thinking?: string;
+    events?: AgentEvent[];
     tokenUsage?: TokenUsage;
   }) => void,
   options?: {
@@ -90,6 +93,7 @@ export async function readStreamingAssistantResponse(
   let buffer = "";
   let rawContent = "";
   let rawThinking = "";
+  let agentEvents: AgentEvent[] = [];
   let tokenUsage: TokenUsage | undefined;
   let isDone = false;
 
@@ -103,6 +107,7 @@ export async function readStreamingAssistantResponse(
     return {
       content: content.trim(),
       thinking: thinking || undefined,
+      events: agentEvents,
       tokenUsage,
       stopped,
     };
@@ -118,8 +123,21 @@ export async function readStreamingAssistantResponse(
     onUpdate({
       content: content || (thinking ? "" : "Thinking"),
       thinking: thinking || undefined,
+      events: agentEvents,
       tokenUsage,
     });
+  }
+
+  function processAgentEvent(event: AgentEvent) {
+    if (event.type === "error") {
+      throw new Error(event.message ?? "Agent0 returned an error.");
+    }
+
+    agentEvents = [...agentEvents, event];
+    if (event.type === "message_delta" && event.message) {
+      rawContent += event.message;
+    }
+    applyContentUpdate();
   }
 
   function processFrame(frame: string) {
@@ -140,6 +158,12 @@ export async function readStreamingAssistantResponse(
     }
 
     const parsed: unknown = JSON.parse(data);
+    const agentEvent = agentEventSchema.safeParse(parsed);
+    if (agentEvent.success) {
+      processAgentEvent(agentEvent.data);
+      return;
+    }
+
     const chunk = chatCompletionChunkSchema.parse(parsed);
 
     if (chunk.error?.message) {

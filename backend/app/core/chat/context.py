@@ -22,6 +22,7 @@ class ChatContextManager:
         user_id: str,
         session_id: str | None,
         user_message: str,
+        session_mode: str = "chat",
     ) -> list[ChatMessage]:
         started_at = time.perf_counter()
         messages: list[ChatMessage] = []
@@ -31,9 +32,9 @@ class ChatContextManager:
         try:
             if session_id is not None:
                 chat_session = self._load_session(user_id=user_id, session_id=session_id)
-                if chat_session.mode != "chat":
+                if chat_session.mode != session_mode:
                     raise ChatContextError(
-                        "This session is not a chat-mode session.",
+                        f"This session is not a {session_mode}-mode session.",
                         status_code=400,
                         error_code="INVALID_CHAT_SESSION_MODE",
                     )

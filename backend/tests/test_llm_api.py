@@ -125,6 +125,40 @@ def make_authenticated_chat_client() -> tuple[TestClient, sessionmaker[Session]]
     return TestClient(app), session_factory
 
 
+def make_authenticated_client(router) -> TestClient:
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+    with session_factory() as db:
+        db.add(User(id=USER_ID, email="user@example.com", password_hash="hash"))
+        db.commit()
+
+    def override_db() -> Generator[Session]:
+        db = session_factory()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    def override_user() -> User:
+        with session_factory() as db:
+            user = db.get(User, USER_ID)
+            assert user is not None
+            db.expunge(user)
+            return user
+
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = override_user
+    return TestClient(app)
+
+
 def make_registry() -> LLMRegistry:
     return LLMRegistry(
         (
@@ -359,24 +393,20 @@ class LLMApiTests(unittest.TestCase):
             ],
         )
 
-    def test_agent0_run_returns_not_implemented_error(self) -> None:
-        client = make_test_client(agent0_router)
+    def test_agent0_run_returns_missing_configuration_error(self) -> None:
+        client = make_authenticated_client(agent0_router)
 
         response = client.post(
             "/run",
             json={
-                "model": "default",
-                "messages": [{"role": "user", "content": "hello"}],
-                "stream": True,
+                "message": "hello",
+                "model": "ignored-model",
             },
         )
 
-        self.assertEqual(response.status_code, 501)
-        self.assertEqual(response.json()["error"]["code"], "AGENT_NOT_IMPLEMENTED")
-        self.assertEqual(
-            response.json()["error"]["message"],
-            "Agent mode is not implemented yet.",
-        )
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["error"]["code"], "AGENT0_CONFIGURATION_ERROR")
+        self.assertIn("AGENT0_LLM_API_KEY", response.json()["error"]["message"])
 
 
 if __name__ == "__main__":

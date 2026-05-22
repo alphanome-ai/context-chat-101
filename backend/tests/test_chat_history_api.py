@@ -94,7 +94,7 @@ class ChatHistoryApiTests(unittest.TestCase):
         self.assertEqual(load_response.json()["mode"], "agent0")
 
         transcript_path = (
-            self.transcript_root / "chat" / "sessions" / str(created["id"]) / "messages"
+            self.transcript_root / "agent0" / "sessions" / str(created["id"]) / "messages.jsonl"
         )
         lines = transcript_path.read_text(encoding="utf-8").splitlines()
         self.assertEqual(len(lines), 1)
@@ -106,6 +106,43 @@ class ChatHistoryApiTests(unittest.TestCase):
         self.assertEqual(transcript_message["position"], 0)
         self.assertEqual(transcript_message["role"], "user")
         self.assertEqual(transcript_message["content"], "hello")
+
+    def test_assistant_events_are_persisted_and_loaded(self) -> None:
+        response = self.client.post(
+            "/chat-sessions",
+            json={
+                "mode": "agent0",
+                "messages": [
+                    {"role": "user", "content": "hello"},
+                    {
+                        "role": "assistant",
+                        "content": "answer",
+                        "events": [
+                            {
+                                "type": "tool_completed",
+                                "tool_name": "web_search",
+                                "message": "Search completed",
+                                "payload": {"query": "hello"},
+                            }
+                        ],
+                    },
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 201)
+        assistant_message = response.json()["messages"][1]
+        self.assertEqual(
+            assistant_message["events"],
+            [
+                {
+                    "type": "tool_completed",
+                    "tool_name": "web_search",
+                    "message": "Search completed",
+                    "payload": {"query": "hello"},
+                }
+            ],
+        )
 
     def test_session_mode_defaults_to_chat(self) -> None:
         response = self.client.post(

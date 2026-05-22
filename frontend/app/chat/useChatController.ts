@@ -404,7 +404,7 @@ export function useChatController() {
     }
 
     const payload = {
-      model: selectedModel || undefined,
+      model: selectedMode === "chat" ? selectedModel || undefined : undefined,
       ...(activeSessionId ? {} : { mode: selectedMode }),
       messages: [
         {
@@ -415,6 +415,7 @@ export function useChatController() {
           role: assistantMessage.role,
           content: assistantMessage.content,
           thinking: assistantMessage.thinking,
+          events: assistantMessage.events,
           input_tokens: assistantMessage.tokenUsage?.inputTokens,
           output_tokens: assistantMessage.tokenUsage?.outputTokens,
           total_tokens: assistantMessage.tokenUsage?.totalTokens,
@@ -473,6 +474,7 @@ export function useChatController() {
 
     let latestAssistantContent = "";
     let latestThinking = "";
+    let latestEvents: Message["events"] = [];
     let latestTokenUsage: TokenUsage | undefined;
 
     try {
@@ -484,11 +486,18 @@ export function useChatController() {
             "Content-Type": "application/json",
             ...getAuthHeaders(),
           },
-          body: JSON.stringify({
-            session_id: activeSessionId,
-            message: userMessage.content,
-            model: selectedModel || undefined,
-          }),
+          body: JSON.stringify(
+            selectedMode === "agent0"
+              ? {
+                  session_id: activeSessionId,
+                  message: userMessage.content,
+                }
+              : {
+                  session_id: activeSessionId,
+                  message: userMessage.content,
+                  model: selectedModel || undefined,
+                },
+          ),
           signal: abortController.signal,
         },
       );
@@ -503,6 +512,7 @@ export function useChatController() {
 
       let assistantContent = "";
       let thinking = "";
+      let events: Message["events"] = [];
       let tokenUsage: TokenUsage | undefined;
       let wasStopped = false;
 
@@ -515,6 +525,7 @@ export function useChatController() {
                 ? ""
                 : nextMessage.content;
             latestThinking = nextMessage.thinking ?? "";
+            latestEvents = nextMessage.events ?? [];
             latestTokenUsage = nextMessage.tokenUsage;
             setMessages((current) =>
               current.map((message) =>
@@ -523,6 +534,7 @@ export function useChatController() {
                       ...message,
                       content: nextMessage.content,
                       thinking: nextMessage.thinking,
+                      events: nextMessage.events,
                       tokenUsage: nextMessage.tokenUsage,
                       status: "streaming",
                     }
@@ -535,6 +547,7 @@ export function useChatController() {
 
         assistantContent = streamedMessage.content;
         thinking = streamedMessage.thinking ?? "";
+        events = streamedMessage.events;
         tokenUsage = streamedMessage.tokenUsage;
         wasStopped = streamedMessage.stopped;
       } else {
@@ -559,6 +572,7 @@ export function useChatController() {
             ? "Stopped before a response was received."
             : "No visible answer returned."),
         thinking: thinking || undefined,
+        events,
         tokenUsage,
         status: undefined,
       };
@@ -583,6 +597,7 @@ export function useChatController() {
           content:
             latestAssistantContent || "Stopped before a response was received.",
           thinking: latestThinking || undefined,
+          events: latestEvents,
           tokenUsage: latestTokenUsage,
           status: undefined,
         };
@@ -784,6 +799,7 @@ export function useChatController() {
           role: message.role,
           content: message.content,
           thinking: message.thinking ?? undefined,
+          events: message.events ?? undefined,
           tokenUsage:
             message.input_tokens != null &&
             message.output_tokens != null &&

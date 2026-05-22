@@ -34,6 +34,14 @@ class Settings(BaseSettings):
     llm_base_url: str = ""
     llm_api_key: str = ""
 
+    agent0_llm_base_url: str = ""
+    agent0_llm_api_key: str = ""
+    agent0_model: str = ""
+    agent0_recovery_llm_base_url: str = ""
+    agent0_recovery_llm_api_key: str = ""
+    agent0_recovery_model: str = ""
+    tavily_api_key: str = ""
+
     @field_validator("debug", mode="before")
     @classmethod
     def parse_bool(cls, value: object) -> object:

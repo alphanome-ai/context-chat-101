@@ -40,7 +40,7 @@ Stores one chat thread per user.
 | `user_id` | `VARCHAR(36)` | Required, indexed, foreign key | References `users.id` |
 | `title` | `VARCHAR(160)` | Required | Generated from the first user message |
 | `model` | `VARCHAR(120)` | Optional | Selected LLM model |
-| `mode` | `VARCHAR(24)` | Required, default `chat` | `chat` or `agent` |
+| `mode` | `VARCHAR(24)` | Required, default `chat` | `chat` or `agent0` |
 | `created_at` | `DATETIME` | Required | UTC creation timestamp |
 | `updated_at` | `DATETIME` | Required | Updated when messages are appended |
 
@@ -55,6 +55,7 @@ Stores ordered messages within a chat session.
 | `role` | `VARCHAR(24)` | Required | `user` or `assistant` |
 | `content` | `TEXT` | Required | Visible message text |
 | `thinking` | `TEXT` | Optional | Model reasoning/thinking text |
+| `events_json` | `TEXT` | Optional | JSONL structured agent events |
 | `input_tokens` | `INTEGER` | Optional | Input token usage for assistant responses |
 | `output_tokens` | `INTEGER` | Optional | Output token usage for assistant responses |
 | `total_tokens` | `INTEGER` | Optional | Total token usage for assistant responses |
@@ -91,15 +92,20 @@ appends JSONL transcript records through `backend/app/core/transcripts.py`.
 Transcript path:
 
 ```text
-.data/<service>/sessions/<session_id>/messages
+.data/<service>/sessions/<session_id>/messages.jsonl
 ```
 
 For chat sessions:
 
 ```text
-.data/chat/sessions/<chat-session-uuid>/messages
+.data/chat/sessions/<chat-session-uuid>/messages.jsonl
+```
+
+For agent0 sessions:
+
+```text
+.data/agent0/sessions/<chat-session-uuid>/messages.jsonl
 ```
 
 The transcript writer is service-based, so future services can write to paths
-such as `.data/agent/sessions/<id>/messages` or
-`.data/agent2/sessions/<id>/messages`.
+such as `.data/agent2/sessions/<id>/messages.jsonl`.
