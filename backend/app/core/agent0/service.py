@@ -12,9 +12,9 @@ import openai
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
-from app.core.chat.context import ChatContextManager
 from app.core.config import Settings, get_settings
 from app.core.llm.schemas import ChatMessage
+from app.core.services.context import ChatContextManager
 
 Agent0EventType = Literal[
     "agent_started",

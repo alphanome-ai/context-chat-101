@@ -3,13 +3,20 @@ import time
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.chat.errors import ChatContextError
 from app.core.logging import get_app_logger
 from app.core.llm.schemas import ChatMessage
 from app.db.models import ChatMessage as StoredChatMessage
 from app.db.models import ChatSession
 
 logger = get_app_logger()
+
+
+class ChatContextError(Exception):
+    def __init__(self, message: str, *, status_code: int = 400, error_code: str) -> None:
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+        self.error_code = error_code
 
 
 class ChatContextManager:
