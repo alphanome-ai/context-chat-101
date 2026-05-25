@@ -62,17 +62,17 @@ class ChatContextManager:
             status = "unexpected_error"
             raise
         finally:
-            elapsed_ms = (time.perf_counter() - started_at) * 1000
+            elapsed_s = time.perf_counter() - started_at
             logger.debug(
                 (
                     "chat_context_build status={} session_id={} persisted_messages={} "
-                    "output_messages={} elapsed_ms={:.2f}"
+                    "output_messages={} elapsed_s={:.3f}"
                 ),
                 status,
                 session_id or "-",
                 persisted_message_count,
                 len(messages),
-                elapsed_ms,
+                elapsed_s,
             )
 
     def _load_session(self, *, user_id: str, session_id: str) -> ChatSession:

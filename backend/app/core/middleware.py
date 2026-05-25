@@ -27,14 +27,14 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
         try:
             response = await call_next(request)
-            process_time_ms = (time.perf_counter() - started_at) * 1000
+            process_time_s = time.perf_counter() - started_at
             response.headers["X-Request-ID"] = request_id
-            response.headers["X-Process-Time-Ms"] = f"{process_time_ms:.2f}"
+            response.headers["X-Process-Time-Ms"] = f"{process_time_s * 1000:.2f}"
             logger.bind(
                 method=request.method,
                 path=request.url.path,
                 status_code=response.status_code,
-                elapsed_ms=f"{process_time_ms:.2f}",
+                elapsed_s=f"{process_time_s:.3f}",
             ).info("api_request")
             return response
         finally:

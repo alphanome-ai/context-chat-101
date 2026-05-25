@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     agent0_recovery_llm_api_key: str = ""
     agent0_recovery_model: str = ""
     tavily_api_key: str = ""
+    mem0_api_key: str = ""
+    mem0_host: str = "https://api.mem0.ai"
+    mem0_top_k: int = 5
 
     @field_validator("debug", mode="before")
     @classmethod

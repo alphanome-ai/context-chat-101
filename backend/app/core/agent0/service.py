@@ -12,9 +12,13 @@ import openai
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
+from app.core.logging import get_app_logger
 from app.core.config import Settings, get_settings
 from app.core.llm.schemas import ChatMessage
 from app.core.services.context import ChatContextManager
+from app.core.services.mem0_context import Mem0ContextChatManager
+
+logger = get_app_logger()
 
 Agent0EventType = Literal[
     "agent_started",
@@ -146,6 +150,7 @@ class Agent0Service:
                 "AGENT0_RECOVERY_LLM_API_KEY": self.settings.agent0_recovery_llm_api_key,
                 "AGENT0_RECOVERY_MODEL": self.settings.agent0_recovery_model,
                 "TAVILY_API_KEY": self.settings.tavily_api_key,
+                "MEM0_API_KEY": self.settings.mem0_api_key,
             }.items()
             if not value
         ]
@@ -163,7 +168,11 @@ class Agent0Service:
         db: Session,
         user_id: str,
     ) -> AsyncIterator[Agent0Event]:
-        messages = ChatContextManager(db).build_messages(
+        context_manager = Mem0ContextChatManager(
+            ChatContextManager(db),
+            settings=self.settings,
+        )
+        messages = context_manager.build_messages(
             user_id=user_id,
             session_id=request.session_id,
             user_message=request.message,
@@ -172,7 +181,16 @@ class Agent0Service:
 
         async def _iterator() -> AsyncIterator[Agent0Event]:
             queue: asyncio.Queue[Agent0Event | None] = asyncio.Queue()
-            task = asyncio.create_task(self._run(messages, queue.put))
+            task = asyncio.create_task(
+                self._run(
+                    messages,
+                    queue.put,
+                    context_manager=context_manager,
+                    user_id=user_id,
+                    session_id=request.session_id,
+                    user_message=request.message,
+                )
+            )
 
             try:
                 while True:
@@ -191,6 +209,11 @@ class Agent0Service:
         self,
         messages: Sequence[ChatMessage],
         emit: Callable[[Agent0Event | None], Awaitable[None]],
+        *,
+        context_manager: Mem0ContextChatManager,
+        user_id: str,
+        session_id: str | None,
+        user_message: str,
     ) -> None:
         completed_tool_results: list[dict[str, Any]] = []
         recovered = False
@@ -199,7 +222,10 @@ class Agent0Service:
             await emit(event)
 
         try:
-            await emit_event(Agent0Event(type="agent_started", message="Agent0 started."))
+            await emit_event(
+                Agent0Event(type="agent_started", message="Agent0 started.")
+            )
+            logger.success(f"Agent0 running with messages: {messages}")
             final_answer = await self._run_primary_agent(
                 messages,
                 completed_tool_results=completed_tool_results,
@@ -218,6 +244,7 @@ class Agent0Service:
                 return
 
             try:
+                logger.success(f"Agent0 (recovery) running with messages: {messages}")
                 final_answer = await self._run_recovery(
                     messages,
                     completed_tool_results=completed_tool_results,
@@ -238,6 +265,16 @@ class Agent0Service:
 
         if final_answer:
             await emit_event(Agent0Event(type="message_delta", message=final_answer))
+            try:
+                await asyncio.to_thread(
+                    context_manager.remember_exchange,
+                    user_id=user_id,
+                    session_id=session_id,
+                    user_message=user_message,
+                    assistant_message=final_answer,
+                )
+            except Exception:
+                pass
         await emit_event(
             Agent0Event(
                 type="agent_completed",
@@ -407,7 +444,11 @@ def _extract_text(value: Any) -> str:
         return value.strip()
 
     if isinstance(value, dict):
-        if "messages" in value and isinstance(value["messages"], list) and value["messages"]:
+        if (
+            "messages" in value
+            and isinstance(value["messages"], list)
+            and value["messages"]
+        ):
             return _extract_text(value["messages"][-1])
         content = value.get("content")
         return _content_to_text(content).strip()
@@ -470,7 +511,9 @@ def _is_recoverable_model_error(exc: Exception) -> bool:
     if openai_error is not None and openai_error is not exc:
         return _is_recoverable_model_error(openai_error)
 
-    if isinstance(exc, (openai.RateLimitError, openai.APITimeoutError, openai.APIConnectionError)):
+    if isinstance(
+        exc, (openai.RateLimitError, openai.APITimeoutError, openai.APIConnectionError)
+    ):
         return True
     if isinstance(exc, openai.APIStatusError):
         return exc.status_code in {408, 429} or exc.status_code >= 500

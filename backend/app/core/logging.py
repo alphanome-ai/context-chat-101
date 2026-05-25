@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import warnings
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -69,6 +70,14 @@ def _suppress_stdlib_loggers() -> None:
         stdlib_logger.disabled = True
 
 
+def _suppress_dependency_warnings() -> None:
+    warnings.filterwarnings(
+        "ignore",
+        message=r"'asyncio\.iscoroutinefunction' is deprecated and slated for removal in Python 3\.16.*",
+        category=DeprecationWarning,
+    )
+
+
 def setup_logging() -> None:
     global _LOGGING_CONFIGURED
 
@@ -77,6 +86,7 @@ def setup_logging() -> None:
 
     settings = get_settings()
     _suppress_stdlib_loggers()
+    _suppress_dependency_warnings()
     loguru_logger.remove()
     loguru_logger.add(
         sys.stdout,
