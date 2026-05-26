@@ -9,7 +9,9 @@ from app.core.llm.schemas import ChatMessage
 from app.core.logging import get_app_logger
 from app.core.services.context import ChatContextManager
 
-os.environ.setdefault("MEM0_DIR", os.path.join(tempfile.gettempdir(), "context-chat-mem0"))
+os.environ.setdefault(
+    "MEM0_DIR", os.path.join(tempfile.gettempdir(), "context-chat-mem0")
+)
 
 from mem0 import MemoryClient  # noqa: E402
 
@@ -28,7 +30,9 @@ class Mem0ContextChatManager:
     ) -> None:
         self._context_manager = context_manager
         self._settings = settings
-        self._memory_client_factory = memory_client_factory or self._create_memory_client
+        self._memory_client_factory = (
+            memory_client_factory or self._create_memory_client
+        )
         self._memory_client: Any | None = None
 
     def build_messages(
@@ -39,12 +43,12 @@ class Mem0ContextChatManager:
         user_message: str,
         session_mode: str = "agent0",
     ) -> list[ChatMessage]:
-        messages = self._context_manager.build_messages(
+        self._context_manager.validate_session(
             user_id=user_id,
             session_id=session_id,
-            user_message=user_message,
             session_mode=session_mode,
         )
+        messages = [ChatMessage(role="user", content=user_message)]
         memories = self._search_memories(user_id=user_id, user_message=user_message)
         if not memories:
             return messages
@@ -80,7 +84,11 @@ class Mem0ContextChatManager:
             )
         except Exception:
             status = "unexpected_error"
-            logger.warning("mem0_memory_add_failed user_id={} session_id={}", user_id, session_id or "-")
+            logger.warning(
+                "mem0_memory_add_failed user_id={} session_id={}",
+                user_id,
+                session_id or "-",
+            )
             raise
         finally:
             elapsed_s = time.perf_counter() - started_at
@@ -96,39 +104,31 @@ class Mem0ContextChatManager:
         if not self._settings.mem0_api_key:
             return []
 
-        started_at = time.perf_counter()
-        status = "ok"
         memories: list[str] = []
         try:
+            started_at = time.perf_counter()
             response = self._client.search(
                 user_message,
                 filters={"user_id": user_id},
                 top_k=self._settings.mem0_top_k,
             )
-            memories = _extract_memories(response)
-            return memories
-        except Exception:
-            status = "unexpected_error"
-            logger.warning(
-                "mem0_memory_search_failed user_id={} query={!r}",
-                user_id,
-                user_message,
-            )
-            raise
-        finally:
             elapsed_s = time.perf_counter() - started_at
             logger.debug(
-                (
-                    "mem0_memory_search status={} user_id={} query={!r} "
-                    "memory_count={} memories={} elapsed_s={:.3f}"
-                ),
-                status,
+                "mem0_memory_search_response user_id={} response={} elapsed_s={:.3f}",
                 user_id,
-                user_message,
-                len(memories),
-                memories,
+                response,
                 elapsed_s,
             )
+            memories = _extract_memories(response)
+            return memories
+        except Exception as e:
+            logger.warning(
+                "mem0_memory_search_failed user_id={} query={!r} error={}",
+                user_id,
+                user_message,
+                str(e),
+            )
+            raise
 
     @property
     def _client(self) -> Any:

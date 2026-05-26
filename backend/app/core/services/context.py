@@ -38,7 +38,10 @@ class ChatContextManager:
 
         try:
             if session_id is not None:
-                chat_session = self._load_session(user_id=user_id, session_id=session_id)
+                chat_session = self._load_session_messages(
+                    user_id=user_id,
+                    session_id=session_id,
+                )
                 if chat_session.mode != session_mode:
                     raise ChatContextError(
                         f"This session is not a {session_mode}-mode session.",
@@ -75,7 +78,39 @@ class ChatContextManager:
                 elapsed_s,
             )
 
+    def validate_session(
+        self,
+        *,
+        user_id: str,
+        session_id: str | None,
+        session_mode: str,
+    ) -> None:
+        if session_id is None:
+            return
+
+        chat_session = self._load_session(user_id=user_id, session_id=session_id)
+        if chat_session.mode != session_mode:
+            raise ChatContextError(
+                f"This session is not a {session_mode}-mode session.",
+                status_code=400,
+                error_code="INVALID_CHAT_SESSION_MODE",
+            )
+
     def _load_session(self, *, user_id: str, session_id: str) -> ChatSession:
+        chat_session = self._db.scalar(
+            select(ChatSession)
+            .where(ChatSession.id == session_id)
+            .where(ChatSession.user_id == user_id)
+        )
+        if chat_session is None:
+            raise ChatContextError(
+                "Chat session not found.",
+                status_code=404,
+                error_code="CHAT_SESSION_NOT_FOUND",
+            )
+        return chat_session
+
+    def _load_session_messages(self, *, user_id: str, session_id: str) -> ChatSession:
         chat_session = self._db.scalar(
             select(ChatSession)
             .options(selectinload(ChatSession.messages))
