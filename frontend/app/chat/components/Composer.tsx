@@ -61,7 +61,7 @@ export function Composer({
   onSubmit,
 }: ComposerProps) {
   const hasSessionUsage = sessionTokenUsage.totalTokens > 0;
-  const showModelPicker = selectedMode !== "agent0";
+  const showModelPicker = selectedMode === "chat";
 
   return (
     <div className="composer-wrap">

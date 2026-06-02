@@ -32,8 +32,8 @@ class JsonlTranscriptStore:
 
 
 def _chat_session_transcript_service(chat_session: ChatSession) -> str:
-    if chat_session.mode == "agent0":
-        return "agent0"
+    if chat_session.mode in {"agent0", "agent1"}:
+        return chat_session.mode
     return "chat"
 
 

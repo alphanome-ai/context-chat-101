@@ -27,7 +27,7 @@ class ChatMessageCreate(BaseModel):
 class ChatSessionCreate(BaseModel):
     title: str | None = Field(default=None, max_length=160)
     model: str | None = Field(default=None, max_length=120)
-    mode: Literal["chat", "agent0"] = "chat"
+    mode: Literal["chat", "agent0", "agent1"] = "chat"
     messages: list[ChatMessageCreate] = Field(default_factory=list)
 
 
@@ -55,7 +55,7 @@ class ChatSessionSummary(BaseModel):
     id: str
     title: str
     model: str | None = None
-    mode: Literal["chat", "agent0"] = "chat"
+    mode: Literal["chat", "agent0", "agent1"] = "chat"
     created_at: datetime
     updated_at: datetime
     message_count: int
@@ -65,7 +65,7 @@ class ChatSessionResponse(BaseModel):
     id: str
     title: str
     model: str | None = None
-    mode: Literal["chat", "agent0"] = "chat"
+    mode: Literal["chat", "agent0", "agent1"] = "chat"
     created_at: datetime
     updated_at: datetime
     messages: list[ChatMessageResponse]
@@ -77,7 +77,9 @@ def _make_title(messages: list[ChatMessageCreate], fallback: str | None) -> str:
     if fallback and fallback.strip():
         return fallback.strip()[:160]
 
-    first_user_message = next((message.content for message in messages if message.role == "user"), "")
+    first_user_message = next(
+        (message.content for message in messages if message.role == "user"), ""
+    )
     title = " ".join(first_user_message.split())
     if not title:
         return "New chat"
@@ -92,7 +94,9 @@ def _get_user_session(db: DbSession, user_id: str, session_id: str) -> ChatSessi
         .where(ChatSession.user_id == user_id)
     )
     if chat_session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat session not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Chat session not found"
+        )
     return chat_session
 
 
@@ -110,7 +114,9 @@ def _append_messages(
     messages: list[ChatMessageCreate],
 ) -> list[ChatMessage]:
     max_position = db.scalar(
-        select(func.max(ChatMessage.position)).where(ChatMessage.session_id == chat_session.id)
+        select(func.max(ChatMessage.position)).where(
+            ChatMessage.session_id == chat_session.id
+        )
     )
     next_position = max_position + 1 if max_position is not None else 0
 
@@ -136,7 +142,9 @@ def _append_messages(
 
 
 @router.get("", response_model=list[ChatSessionSummary])
-def list_chat_sessions(current_user: CurrentUser, db: DbSession) -> list[ChatSessionSummary]:
+def list_chat_sessions(
+    current_user: CurrentUser, db: DbSession
+) -> list[ChatSessionSummary]:
     rows = db.execute(
         select(ChatSession, func.count(ChatMessage.id))
         .outerjoin(ChatMessage)
@@ -159,7 +167,9 @@ def list_chat_sessions(current_user: CurrentUser, db: DbSession) -> list[ChatSes
     ]
 
 
-@router.post("", response_model=ChatSessionResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "", response_model=ChatSessionResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_chat_session(
     payload: ChatSessionCreate,
     current_user: CurrentUser,
@@ -185,7 +195,9 @@ async def create_chat_session(
 
 
 @router.get("/{session_id}", response_model=ChatSessionResponse)
-def get_chat_session(session_id: str, current_user: CurrentUser, db: DbSession) -> ChatSession:
+def get_chat_session(
+    session_id: str, current_user: CurrentUser, db: DbSession
+) -> ChatSession:
     return _get_user_session(db, current_user.id, session_id)
 
 
@@ -206,7 +218,9 @@ async def add_chat_messages(
 
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_chat_session(session_id: str, current_user: CurrentUser, db: DbSession) -> Response:
+def delete_chat_session(
+    session_id: str, current_user: CurrentUser, db: DbSession
+) -> Response:
     chat_session = _get_user_session(db, current_user.id, session_id)
     db.delete(chat_session)
     db.commit()

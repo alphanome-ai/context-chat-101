@@ -130,7 +130,7 @@ export async function readStreamingAssistantResponse(
 
   function processAgentEvent(event: AgentEvent) {
     if (event.type === "error") {
-      throw new Error(event.message ?? "Agent0 returned an error.");
+      throw new Error(event.message ?? "Agent returned an error.");
     }
 
     agentEvents = [...agentEvents, event];

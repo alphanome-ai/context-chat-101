@@ -12,7 +12,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_current_user
-from app.core.transcripts import JsonlTranscriptStore, append_chat_session_messages_jsonl
+from app.core.transcripts import (
+    JsonlTranscriptStore,
+    append_chat_session_messages_jsonl,
+)
 from app.db.models import User
 from app.db.session import Base, get_db
 from app.services.chat_history.api import router
@@ -44,7 +47,9 @@ class ChatHistoryApiTests(unittest.TestCase):
             poolclass=StaticPool,
         )
         Base.metadata.create_all(bind=engine)
-        self.session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+        self.session_factory = sessionmaker(
+            bind=engine, autocommit=False, autoflush=False
+        )
 
         with self.session_factory() as db:
             db.add(User(id=USER_ID, email="user@example.com", password_hash="hash"))
@@ -94,7 +99,11 @@ class ChatHistoryApiTests(unittest.TestCase):
         self.assertEqual(load_response.json()["mode"], "agent0")
 
         transcript_path = (
-            self.transcript_root / "agent0" / "sessions" / str(created["id"]) / "messages.jsonl"
+            self.transcript_root
+            / "agent0"
+            / "sessions"
+            / str(created["id"])
+            / "messages.jsonl"
         )
         lines = transcript_path.read_text(encoding="utf-8").splitlines()
         self.assertEqual(len(lines), 1)
@@ -152,6 +161,32 @@ class ChatHistoryApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()["mode"], "chat")
+
+    def test_agent1_session_writes_agent1_transcript(self) -> None:
+        create_response = self.client.post(
+            "/chat-sessions",
+            json={
+                "mode": "agent1",
+                "messages": [{"role": "user", "content": "hello agent1"}],
+            },
+        )
+
+        self.assertEqual(create_response.status_code, 201)
+        created = create_response.json()
+        self.assertEqual(created["mode"], "agent1")
+
+        transcript_path = (
+            self.transcript_root
+            / "agent1"
+            / "sessions"
+            / str(created["id"])
+            / "messages.jsonl"
+        )
+        lines = transcript_path.read_text(encoding="utf-8").splitlines()
+        self.assertEqual(len(lines), 1)
+        transcript_message = json.loads(lines[0])
+        self.assertEqual(transcript_message["mode"], "agent1")
+        self.assertEqual(transcript_message["content"], "hello agent1")
 
 
 if __name__ == "__main__":

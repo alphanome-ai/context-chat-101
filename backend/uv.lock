@@ -213,6 +213,7 @@ dependencies = [
     { name = "mem0ai" },
     { name = "openai" },
     { name = "sqlalchemy" },
+    { name = "supermemory" },
 ]
 
 [package.dev-dependencies]
@@ -236,6 +237,7 @@ requires-dist = [
     { name = "mem0ai", specifier = ">=2.0.2" },
     { name = "openai", specifier = ">=2.36.0" },
     { name = "sqlalchemy", specifier = ">=2.0.0" },
+    { name = "supermemory", specifier = ">=3.43.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -1937,6 +1939,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/81/69/17425771797c36cded50b7fe44e850315d039f28b15901ab44839e70b593/starlette-1.0.0.tar.gz", hash = "sha256:6a4beaf1f81bb472fd19ea9b918b50dc3a77a6f2e190a12954b25e6ed5eea149", size = 2655289, upload-time = "2026-03-22T18:29:46.779Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0b/c9/584bc9651441b4ba60cc4d557d8a547b5aff901af35bda3a4ee30c819b82/starlette-1.0.0-py3-none-any.whl", hash = "sha256:d3ec55e0bb321692d275455ddfd3df75fff145d009685eb40dc91fc66b03d38b", size = 72651, upload-time = "2026-03-22T18:29:45.111Z" },
+]
+
+[[package]]
+name = "supermemory"
+version = "3.44.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "distro" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a2/61/3478b94bf9107ff4f9f354f55fa7273f84df95524d1e2500d24e95a9d2e3/supermemory-3.44.0.tar.gz", hash = "sha256:9cd392cbe1763a793b55b78af300fcc240dcd0cc0c58cb09f4067c6cbcfbb21f", size = 173076, upload-time = "2026-06-01T18:29:19.563Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d0/bc/08f42a9fdbfdc7d781b31f8b6285eec7834188113be19cc03af9a495eb7a/supermemory-3.44.0-py3-none-any.whl", hash = "sha256:941673b126503f0a2eeff8fc1c61337e4cbf71ce9aa5c871d46cbf7b223222c2", size = 154246, upload-time = "2026-06-01T18:29:18.468Z" },
 ]
 
 [[package]]

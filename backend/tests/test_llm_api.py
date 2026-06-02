@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_current_user
+from app.core.config import Settings
 from app.core.chat import ChatService
 from app.core.llm.base import BaseChatModel
 from app.core.llm.errors import LLMModelError
@@ -27,6 +28,7 @@ from app.db.models import ChatMessage as StoredChatMessage
 from app.db.models import ChatSession, User
 from app.db.session import Base, get_db
 from app.services.agent0.api.v1 import router as agent0_router
+from app.services.agent1.api.v1 import router as agent1_router
 from app.services.chat.api.v1 import router as chat_router
 from app.services.llm.api.v1 import router as llm_router
 
@@ -55,7 +57,9 @@ class FakeChatModel(BaseChatModel):
                 model=request.model,
                 choices=[
                     StreamChoice(
-                        delta=DeltaContent(role="assistant", content=f"streamed:{request.model}"),
+                        delta=DeltaContent(
+                            role="assistant", content=f"streamed:{request.model}"
+                        ),
                         finish_reason=None,
                     )
                 ],
@@ -204,7 +208,9 @@ class LLMApiTests(unittest.TestCase):
     def test_providers_endpoint_lists_registry_models(self) -> None:
         client = make_test_client(llm_router)
 
-        with patch("app.services.llm.api.v1.get_llm_registry", return_value=make_registry()):
+        with patch(
+            "app.services.llm.api.v1.get_llm_registry", return_value=make_registry()
+        ):
             response = client.get("/providers")
 
         self.assertEqual(response.status_code, 200)
@@ -238,7 +244,9 @@ class LLMApiTests(unittest.TestCase):
     def test_non_streaming_completion_returns_fake_model_response(self) -> None:
         client, _ = make_authenticated_chat_client()
 
-        with patch("app.core.chat.service.get_llm_registry", return_value=make_registry()):
+        with patch(
+            "app.core.chat.service.get_llm_registry", return_value=make_registry()
+        ):
             response = client.post(
                 "/run",
                 json={
@@ -259,7 +267,9 @@ class LLMApiTests(unittest.TestCase):
     def test_unknown_model_returns_structured_error(self) -> None:
         client, _ = make_authenticated_chat_client()
 
-        with patch("app.core.chat.service.get_llm_registry", return_value=make_registry()):
+        with patch(
+            "app.core.chat.service.get_llm_registry", return_value=make_registry()
+        ):
             response = client.post(
                 "/run",
                 json={
@@ -271,12 +281,16 @@ class LLMApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["error"]["code"], "UNSUPPORTED_MODEL")
-        self.assertEqual(response.json()["error"]["message"], "Unsupported model: missing-model")
+        self.assertEqual(
+            response.json()["error"]["message"], "Unsupported model: missing-model"
+        )
 
     def test_streaming_completion_wraps_chunks_as_sse(self) -> None:
         client, _ = make_authenticated_chat_client()
 
-        with patch("app.core.chat.service.get_llm_registry", return_value=make_registry()):
+        with patch(
+            "app.core.chat.service.get_llm_registry", return_value=make_registry()
+        ):
             with client.stream(
                 "POST",
                 "/run",
@@ -302,7 +316,11 @@ class LLMApiTests(unittest.TestCase):
                     name="Fake Provider",
                     type="fake",
                     default_model="fake-error",
-                    models=(ModelDefinition(id="fake-error", model_cls=StreamErrorChatModel),),
+                    models=(
+                        ModelDefinition(
+                            id="fake-error", model_cls=StreamErrorChatModel
+                        ),
+                    ),
                 ),
             )
         )
@@ -345,7 +363,9 @@ class LLMApiTests(unittest.TestCase):
         RecordingChatModel.last_request = None
         client, session_factory = make_authenticated_chat_client()
         with session_factory() as db:
-            chat_session = ChatSession(user_id=USER_ID, title="Saved chat", model="recording")
+            chat_session = ChatSession(
+                user_id=USER_ID, title="Saved chat", model="recording"
+            )
             db.add(chat_session)
             db.flush()
             db.add_all(
@@ -367,7 +387,10 @@ class LLMApiTests(unittest.TestCase):
             db.commit()
             session_id = chat_session.id
 
-        with patch("app.core.chat.service.get_llm_registry", return_value=make_recording_registry()):
+        with patch(
+            "app.core.chat.service.get_llm_registry",
+            return_value=make_recording_registry(),
+        ):
             response = client.post(
                 "/run",
                 json={
@@ -396,17 +419,54 @@ class LLMApiTests(unittest.TestCase):
     def test_agent0_run_returns_missing_configuration_error(self) -> None:
         client = make_authenticated_client(agent0_router)
 
-        response = client.post(
-            "/run",
-            json={
-                "message": "hello",
-                "model": "ignored-model",
-            },
-        )
+        with patch(
+            "app.core.agent0.service.get_settings",
+            return_value=Settings(
+                agent0_llm_api_key="",
+                agent0_model="",
+                agent0_recovery_llm_api_key="",
+                agent0_recovery_model="",
+                tavily_api_key="",
+                mem0_api_key="",
+            ),
+        ):
+            response = client.post(
+                "/run",
+                json={
+                    "message": "hello",
+                    "model": "ignored-model",
+                },
+            )
 
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json()["error"]["code"], "AGENT0_CONFIGURATION_ERROR")
         self.assertIn("AGENT0_LLM_API_KEY", response.json()["error"]["message"])
+
+    def test_agent1_run_returns_missing_configuration_error(self) -> None:
+        client = make_authenticated_client(agent1_router)
+
+        with patch(
+            "app.core.agent1.service.get_settings",
+            return_value=Settings(
+                agent1_llm_api_key="",
+                agent1_model="",
+                agent1_recovery_llm_api_key="",
+                agent1_recovery_model="",
+                tavily_api_key="",
+                supermemory_api_key="",
+            ),
+        ):
+            response = client.post(
+                "/run",
+                json={
+                    "message": "hello",
+                    "model": "ignored-model",
+                },
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["error"]["code"], "AGENT1_CONFIGURATION_ERROR")
+        self.assertIn("AGENT1_LLM_API_KEY", response.json()["error"]["message"])
 
 
 if __name__ == "__main__":

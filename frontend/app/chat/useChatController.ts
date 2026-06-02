@@ -479,7 +479,7 @@ export function useChatController() {
 
     try {
       const response = await fetch(
-        selectedMode === "agent0" ? "/api/agent0" : "/api/chat",
+        selectedMode === "chat" ? "/api/chat" : `/api/${selectedMode}`,
         {
           method: "POST",
           headers: {
@@ -487,7 +487,7 @@ export function useChatController() {
             ...getAuthHeaders(),
           },
           body: JSON.stringify(
-            selectedMode === "agent0"
+            selectedMode !== "chat"
               ? {
                   session_id: activeSessionId,
                   message: userMessage.content,

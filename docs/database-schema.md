@@ -40,7 +40,7 @@ Stores one chat thread per user.
 | `user_id` | `VARCHAR(36)` | Required, indexed, foreign key | References `users.id` |
 | `title` | `VARCHAR(160)` | Required | Generated from the first user message |
 | `model` | `VARCHAR(120)` | Optional | Selected LLM model |
-| `mode` | `VARCHAR(24)` | Required, default `chat` | `chat` or `agent0` |
+| `mode` | `VARCHAR(24)` | Required, default `chat` | `chat`, `agent0`, or `agent1` |
 | `created_at` | `DATETIME` | Required | UTC creation timestamp |
 | `updated_at` | `DATETIME` | Required | Updated when messages are appended |
 
@@ -105,6 +105,12 @@ For agent0 sessions:
 
 ```text
 .data/agent0/sessions/<chat-session-uuid>/messages.jsonl
+```
+
+For agent1 sessions:
+
+```text
+.data/agent1/sessions/<chat-session-uuid>/messages.jsonl
 ```
 
 The transcript writer is service-based, so future services can write to paths
