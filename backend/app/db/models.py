@@ -1,4 +1,6 @@
+import json
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
@@ -89,6 +91,7 @@ class ChatMessage(Base):
     role: Mapped[str] = mapped_column(String(24), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     thinking: Mapped[str | None] = mapped_column(Text)
+    events_json: Mapped[str | None] = mapped_column(Text)
     input_tokens: Mapped[int | None] = mapped_column(Integer)
     output_tokens: Mapped[int | None] = mapped_column(Integer)
     total_tokens: Mapped[int | None] = mapped_column(Integer)
@@ -96,6 +99,24 @@ class ChatMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     session: Mapped[ChatSession] = relationship(back_populates="messages")
+
+    @property
+    def events(self) -> list[dict[str, Any]] | None:
+        if not self.events_json:
+            return None
+
+        events: list[dict[str, Any]] = []
+        for line in self.events_json.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                event = json.loads(stripped)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(event, dict):
+                events.append(event)
+        return events or None
 
 
 class QuotaUsage(Base):

@@ -1,7 +1,9 @@
 import {
+  agentEventSchema,
   chatCompletionChunkSchema,
   type AssistantResponseMessage,
   type AssistantStreamChunk,
+  type AgentEvent,
   type TokenUsageResponse,
 } from "./schemas";
 import type { TokenUsage } from "./types";
@@ -32,7 +34,8 @@ export function getThinkingText(message?: AssistantResponseMessage) {
     message.thinking,
   ];
 
-  return fields.find((field) => typeof field === "string" && field.trim())
+  return fields
+    .find((field) => typeof field === "string" && field.trim())
     ?.trim();
 }
 
@@ -46,6 +49,10 @@ export function splitTaggedThinking(content: string) {
     content: content.replace(match[0], "").trim(),
     thinking: match[1].trim(),
   };
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
 }
 
 function extractAssistantChunk(chunk: AssistantStreamChunk) {
@@ -70,8 +77,12 @@ export async function readStreamingAssistantResponse(
   onUpdate: (message: {
     content: string;
     thinking?: string;
+    events?: AgentEvent[];
     tokenUsage?: TokenUsage;
   }) => void,
+  options?: {
+    signal?: AbortSignal;
+  },
 ) {
   if (!response.body) {
     throw new Error("The backend did not return a response stream.");
@@ -82,8 +93,25 @@ export async function readStreamingAssistantResponse(
   let buffer = "";
   let rawContent = "";
   let rawThinking = "";
+  let agentEvents: AgentEvent[] = [];
   let tokenUsage: TokenUsage | undefined;
   let isDone = false;
+
+  function buildResult(stopped = false) {
+    const { content, thinking: taggedThinking } =
+      splitTaggedThinking(rawContent);
+    const thinking = [rawThinking.trim(), taggedThinking]
+      .filter(Boolean)
+      .join("\n\n");
+
+    return {
+      content: content.trim(),
+      thinking: thinking || undefined,
+      events: agentEvents,
+      tokenUsage,
+      stopped,
+    };
+  }
 
   function applyContentUpdate() {
     const { content, thinking: taggedThinking } =
@@ -95,8 +123,21 @@ export async function readStreamingAssistantResponse(
     onUpdate({
       content: content || (thinking ? "" : "Thinking"),
       thinking: thinking || undefined,
+      events: agentEvents,
       tokenUsage,
     });
+  }
+
+  function processAgentEvent(event: AgentEvent) {
+    if (event.type === "error") {
+      throw new Error(event.message ?? "Agent returned an error.");
+    }
+
+    agentEvents = [...agentEvents, event];
+    if (event.type === "message_delta" && event.message) {
+      rawContent += event.message;
+    }
+    applyContentUpdate();
   }
 
   function processFrame(frame: string) {
@@ -117,6 +158,12 @@ export async function readStreamingAssistantResponse(
     }
 
     const parsed: unknown = JSON.parse(data);
+    const agentEvent = agentEventSchema.safeParse(parsed);
+    if (agentEvent.success) {
+      processAgentEvent(agentEvent.data);
+      return;
+    }
+
     const chunk = chatCompletionChunkSchema.parse(parsed);
 
     if (chunk.error?.message) {
@@ -134,35 +181,32 @@ export async function readStreamingAssistantResponse(
     applyContentUpdate();
   }
 
-  while (!isDone) {
-    const { value, done } = await reader.read();
-    buffer += decoder.decode(value, { stream: !done });
+  try {
+    while (!isDone) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done });
 
-    let boundaryIndex = buffer.indexOf("\n\n");
-    while (boundaryIndex !== -1) {
-      const frame = buffer.slice(0, boundaryIndex);
-      buffer = buffer.slice(boundaryIndex + 2);
-      processFrame(frame);
-      boundaryIndex = buffer.indexOf("\n\n");
-    }
-
-    if (done) {
-      if (buffer.trim()) {
-        processFrame(buffer);
+      let boundaryIndex = buffer.indexOf("\n\n");
+      while (boundaryIndex !== -1) {
+        const frame = buffer.slice(0, boundaryIndex);
+        buffer = buffer.slice(boundaryIndex + 2);
+        processFrame(frame);
+        boundaryIndex = buffer.indexOf("\n\n");
       }
-      break;
+
+      if (done) {
+        if (buffer.trim()) {
+          processFrame(buffer);
+        }
+        break;
+      }
     }
+  } catch (error) {
+    if (options?.signal?.aborted && isAbortError(error)) {
+      return buildResult(true);
+    }
+    throw error;
   }
 
-  const { content, thinking: taggedThinking } =
-    splitTaggedThinking(rawContent);
-  const thinking = [rawThinking.trim(), taggedThinking]
-    .filter(Boolean)
-    .join("\n\n");
-
-  return {
-    content: content.trim(),
-    thinking: thinking || undefined,
-    tokenUsage,
-  };
+  return buildResult(options?.signal?.aborted ?? false);
 }

@@ -53,6 +53,23 @@ export const tokenUsageSchema = z.object({
   total_tokens: z.number(),
 });
 
+export const agentEventSchema = z.object({
+  type: z.enum([
+    "agent_started",
+    "tool_started",
+    "tool_completed",
+    "tool_failed",
+    "recovery_started",
+    "recovery_completed",
+    "message_delta",
+    "agent_completed",
+    "error",
+  ]),
+  message: z.string().nullable().optional(),
+  tool_name: z.string().nullable().optional(),
+  payload: z.unknown().optional(),
+});
+
 export const chatCompletionResponseSchema = z.object({
   choices: z
     .array(
@@ -81,7 +98,7 @@ export const chatSessionSummarySchema = z.object({
   id: z.string().uuid(),
   title: z.string(),
   model: z.string().nullable().optional(),
-  mode: z.enum(["chat", "agent"]).default("chat"),
+  mode: z.enum(["chat", "agent0", "agent1"]).default("chat"),
   created_at: z.string(),
   updated_at: z.string(),
   message_count: z.number(),
@@ -91,7 +108,7 @@ export const chatSessionDetailSchema = z.object({
   id: z.string().uuid(),
   title: z.string(),
   model: z.string().nullable().optional(),
-  mode: z.enum(["chat", "agent"]).default("chat"),
+  mode: z.enum(["chat", "agent0", "agent1"]).default("chat"),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -101,6 +118,7 @@ export const storedChatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
   content: z.string(),
   thinking: z.string().nullable().optional(),
+  events: z.array(agentEventSchema).nullable().optional(),
   input_tokens: z.number().nullable().optional(),
   output_tokens: z.number().nullable().optional(),
   total_tokens: z.number().nullable().optional(),
@@ -117,3 +135,4 @@ export type AssistantResponseMessage = z.infer<
 >;
 export type AssistantStreamChunk = z.infer<typeof chatCompletionChunkSchema>;
 export type TokenUsageResponse = z.infer<typeof tokenUsageSchema>;
+export type AgentEvent = z.infer<typeof agentEventSchema>;

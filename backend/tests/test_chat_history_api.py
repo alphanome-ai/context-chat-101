@@ -12,7 +12,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_current_user
-from app.core.transcripts import JsonlTranscriptStore, append_chat_session_messages_jsonl
+from app.core.transcripts import (
+    JsonlTranscriptStore,
+    append_chat_session_messages_jsonl,
+)
 from app.db.models import User
 from app.db.session import Base, get_db
 from app.services.chat_history.api import router
@@ -44,7 +47,9 @@ class ChatHistoryApiTests(unittest.TestCase):
             poolclass=StaticPool,
         )
         Base.metadata.create_all(bind=engine)
-        self.session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+        self.session_factory = sessionmaker(
+            bind=engine, autocommit=False, autoflush=False
+        )
 
         with self.session_factory() as db:
             db.add(User(id=USER_ID, email="user@example.com", password_hash="hash"))
@@ -78,7 +83,7 @@ class ChatHistoryApiTests(unittest.TestCase):
         create_response = self.client.post(
             "/chat-sessions",
             json={
-                "mode": "agent",
+                "mode": "agent0",
                 "model": "fake-model",
                 "messages": [{"role": "user", "content": "hello"}],
             },
@@ -86,26 +91,67 @@ class ChatHistoryApiTests(unittest.TestCase):
 
         self.assertEqual(create_response.status_code, 201)
         created = create_response.json()
-        self.assertEqual(created["mode"], "agent")
+        self.assertEqual(created["mode"], "agent0")
 
         load_response = self.client.get(f"/chat-sessions/{created['id']}")
 
         self.assertEqual(load_response.status_code, 200)
-        self.assertEqual(load_response.json()["mode"], "agent")
+        self.assertEqual(load_response.json()["mode"], "agent0")
 
         transcript_path = (
-            self.transcript_root / "chat" / "sessions" / str(created["id"]) / "messages"
+            self.transcript_root
+            / "agent0"
+            / "sessions"
+            / str(created["id"])
+            / "messages.jsonl"
         )
         lines = transcript_path.read_text(encoding="utf-8").splitlines()
         self.assertEqual(len(lines), 1)
         transcript_message = json.loads(lines[0])
         self.assertEqual(transcript_message["session_id"], created["id"])
         self.assertEqual(transcript_message["user_id"], USER_ID)
-        self.assertEqual(transcript_message["mode"], "agent")
+        self.assertEqual(transcript_message["mode"], "agent0")
         self.assertEqual(transcript_message["model"], "fake-model")
         self.assertEqual(transcript_message["position"], 0)
         self.assertEqual(transcript_message["role"], "user")
         self.assertEqual(transcript_message["content"], "hello")
+
+    def test_assistant_events_are_persisted_and_loaded(self) -> None:
+        response = self.client.post(
+            "/chat-sessions",
+            json={
+                "mode": "agent0",
+                "messages": [
+                    {"role": "user", "content": "hello"},
+                    {
+                        "role": "assistant",
+                        "content": "answer",
+                        "events": [
+                            {
+                                "type": "tool_completed",
+                                "tool_name": "web_search",
+                                "message": "Search completed",
+                                "payload": {"query": "hello"},
+                            }
+                        ],
+                    },
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 201)
+        assistant_message = response.json()["messages"][1]
+        self.assertEqual(
+            assistant_message["events"],
+            [
+                {
+                    "type": "tool_completed",
+                    "tool_name": "web_search",
+                    "message": "Search completed",
+                    "payload": {"query": "hello"},
+                }
+            ],
+        )
 
     def test_session_mode_defaults_to_chat(self) -> None:
         response = self.client.post(
@@ -115,6 +161,32 @@ class ChatHistoryApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()["mode"], "chat")
+
+    def test_agent1_session_writes_agent1_transcript(self) -> None:
+        create_response = self.client.post(
+            "/chat-sessions",
+            json={
+                "mode": "agent1",
+                "messages": [{"role": "user", "content": "hello agent1"}],
+            },
+        )
+
+        self.assertEqual(create_response.status_code, 201)
+        created = create_response.json()
+        self.assertEqual(created["mode"], "agent1")
+
+        transcript_path = (
+            self.transcript_root
+            / "agent1"
+            / "sessions"
+            / str(created["id"])
+            / "messages.jsonl"
+        )
+        lines = transcript_path.read_text(encoding="utf-8").splitlines()
+        self.assertEqual(len(lines), 1)
+        transcript_message = json.loads(lines[0])
+        self.assertEqual(transcript_message["mode"], "agent1")
+        self.assertEqual(transcript_message["content"], "hello agent1")
 
 
 if __name__ == "__main__":

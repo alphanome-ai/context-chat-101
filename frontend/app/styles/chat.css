@@ -90,7 +90,7 @@
 .scroll-bottom-button {
   position: absolute;
   right: max(24px, calc((100% - min(100%, 920px)) / 2 + 10px));
-  bottom: 92px;
+  bottom: 120px;
   display: inline-flex;
   width: 34px;
   height: 34px;
@@ -172,6 +172,45 @@
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.agent-events-panel {
+  margin-bottom: 10px;
+}
+
+.agent-events-panel summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.agent-events-panel ol {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-events-panel li {
+  display: grid;
+  gap: 2px;
+  border-left: 2px solid var(--composer-border);
+  padding-left: 8px;
+}
+
+.agent-events-panel span {
+  color: var(--text-body);
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.agent-events-panel small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .message-text {

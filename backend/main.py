@@ -66,14 +66,11 @@ def create_app() -> FastAPI:
 
     @application.exception_handler(Exception)
     async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-        logger.exception(
-            "unhandled_exception",
-            extra={
-                "method": request.method,
-                "path": request.url.path,
-                "error_type": type(exc).__name__,
-            },
-        )
+        logger.bind(
+            method=request.method,
+            path=request.url.path,
+            error_type=type(exc).__name__,
+        ).exception("unhandled_exception")
 
         content: dict[str, Any] = {
             "error": {

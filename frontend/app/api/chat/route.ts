@@ -45,9 +45,11 @@ export async function POST(request: Request) {
       temperature: body.temperature ?? 0.2,
     }),
     cache: "no-store",
+    signal: request.signal,
   });
 
-  const contentType = upstreamResponse.headers.get("Content-Type") ?? "application/json";
+  const contentType =
+    upstreamResponse.headers.get("Content-Type") ?? "application/json";
 
   if (contentType.includes("text/event-stream")) {
     return new Response(upstreamResponse.body, {

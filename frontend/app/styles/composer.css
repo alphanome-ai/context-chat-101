@@ -312,12 +312,16 @@
   color: var(--placeholder);
 }
 
-.send-button {
+.send-button,
+.stop-button {
   width: 30px;
   height: 30px;
   flex: 0 0 auto;
   margin: 0 8px 0 4px;
   border-radius: 999px;
+}
+
+.send-button {
   background: var(--send-bg);
   color: var(--send-text);
   box-shadow: var(--shadow-send);
@@ -341,6 +345,32 @@
   background: var(--send-disabled);
   box-shadow: none;
   color: var(--control-bg);
+}
+
+.stop-button {
+  background: var(--stop-bg);
+  color: var(--stop-text);
+  box-shadow: var(--shadow-send);
+  transition:
+    background 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.stop-button:hover {
+  background: var(--stop-hover);
+  box-shadow: var(--shadow-send-hover);
+}
+
+.stop-button:active {
+  transform: scale(0.95);
+}
+
+.stop-icon {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: currentColor;
 }
 
 .draft-expand-button {

@@ -2,11 +2,50 @@ import type { RefObject } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import type { AgentEvent } from "../lib/schemas";
 import type { HtmlPreview, Message } from "../lib/types";
 import { extractHtmlPreview, isLongMessage } from "../lib/utils";
 
 function formatTokenCount(value: number) {
   return value.toLocaleString();
+}
+
+function agentEventLabel(event: AgentEvent) {
+  switch (event.type) {
+    case "agent_started":
+      return "Started";
+    case "tool_started":
+      return `Tool started${event.tool_name ? `: ${event.tool_name}` : ""}`;
+    case "tool_completed":
+      return `Tool completed${event.tool_name ? `: ${event.tool_name}` : ""}`;
+    case "tool_failed":
+      return `Tool failed${event.tool_name ? `: ${event.tool_name}` : ""}`;
+    case "recovery_started":
+      return "Recovery started";
+    case "recovery_completed":
+      return "Recovery completed";
+    case "message_delta":
+      return "Answer updated";
+    case "agent_completed":
+      return "Completed";
+    case "error":
+      return "Error";
+  }
+}
+
+function eventPreview(event: AgentEvent) {
+  if (event.message) {
+    return event.message;
+  }
+  if (
+    event.payload &&
+    typeof event.payload === "object" &&
+    event.payload !== null &&
+    "query" in event.payload
+  ) {
+    return String(event.payload.query);
+  }
+  return "";
 }
 
 type ChatMessagesProps = {
@@ -63,6 +102,8 @@ export function ChatMessages({
           message.role === "assistant" && !message.status
             ? message.tokenUsage
             : undefined;
+        const agentEvents =
+          message.role === "assistant" ? (message.events ?? []) : [];
 
         return (
           <article
@@ -87,6 +128,25 @@ export function ChatMessages({
                     {message.thinking}
                   </ReactMarkdown>
                 </div>
+              </details>
+            ) : null}
+            {agentEvents.length > 0 ? (
+              <details className="agent-events-panel">
+                <summary>Agent activity</summary>
+                <ol>
+                  {agentEvents
+                    .filter((event) => event.type !== "message_delta")
+                    .map((event, index) => {
+                      const preview = eventPreview(event);
+
+                      return (
+                        <li key={`${event.type}-${index}`}>
+                          <span>{agentEventLabel(event)}</span>
+                          {preview ? <small>{preview}</small> : null}
+                        </li>
+                      );
+                    })}
+                </ol>
               </details>
             ) : null}
             {message.status !== "pending" ? (

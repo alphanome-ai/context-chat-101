@@ -30,6 +30,7 @@ type ComposerProps = {
   onOpenDraftEditorChange: (isOpen: boolean) => void;
   onOpenPickerChange: (menu: PickerMenu | null) => void;
   onSendMessage: (content: string) => void;
+  onStopStreaming: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 };
 
@@ -56,9 +57,11 @@ export function Composer({
   onOpenDraftEditorChange,
   onOpenPickerChange,
   onSendMessage,
+  onStopStreaming,
   onSubmit,
 }: ComposerProps) {
   const hasSessionUsage = sessionTokenUsage.totalTokens > 0;
+  const showModelPicker = selectedMode === "chat";
 
   return (
     <div className="composer-wrap">
@@ -151,51 +154,53 @@ export function Composer({
             </div>
           ) : null}
         </div>
-        <div className="model-picker picker">
-          <button
-            className="picker-trigger"
-            type="button"
-            aria-label="LLM model"
-            aria-haspopup="listbox"
-            aria-expanded={openPicker === "model"}
-            aria-controls="llm-model-menu"
-            onClick={() =>
-              onOpenPickerChange(openPicker === "model" ? null : "model")
-            }
-            disabled={isModelPickerDisabled}
-          >
-            <span className="picker-trigger-text">
-              <span className="picker-label">Model</span>
-              <span className="picker-value">{selectedModelLabel}</span>
-            </span>
-            <span className="picker-chevron" aria-hidden="true" />
-          </button>
-          {openPicker === "model" ? (
-            <div
-              className="picker-menu model-menu"
-              id="llm-model-menu"
-              role="listbox"
+        {showModelPicker ? (
+          <div className="model-picker picker">
+            <button
+              className="picker-trigger"
+              type="button"
               aria-label="LLM model"
+              aria-haspopup="listbox"
+              aria-expanded={openPicker === "model"}
+              aria-controls="llm-model-menu"
+              onClick={() =>
+                onOpenPickerChange(openPicker === "model" ? null : "model")
+              }
+              disabled={isModelPickerDisabled}
             >
-              {llmOptions.map((option) => (
-                <button
-                  className={
-                    option.id === selectedModel
-                      ? "picker-option selected"
-                      : "picker-option"
-                  }
-                  key={`${option.providerName}-${option.id}`}
-                  type="button"
-                  role="option"
-                  aria-selected={option.id === selectedModel}
-                  onClick={() => onModelChange(option.id)}
-                >
-                  <span>{option.label}</span>
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
+              <span className="picker-trigger-text">
+                <span className="picker-label">Model</span>
+                <span className="picker-value">{selectedModelLabel}</span>
+              </span>
+              <span className="picker-chevron" aria-hidden="true" />
+            </button>
+            {openPicker === "model" ? (
+              <div
+                className="picker-menu model-menu"
+                id="llm-model-menu"
+                role="listbox"
+                aria-label="LLM model"
+              >
+                {llmOptions.map((option) => (
+                  <button
+                    className={
+                      option.id === selectedModel
+                        ? "picker-option selected"
+                        : "picker-option"
+                    }
+                    key={`${option.providerName}-${option.id}`}
+                    type="button"
+                    role="option"
+                    aria-selected={option.id === selectedModel}
+                    onClick={() => onModelChange(option.id)}
+                  >
+                    <span>{option.label}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         <textarea
           aria-label="Message"
           placeholder="Type a Message"
@@ -216,14 +221,26 @@ export function Composer({
         >
           <span aria-hidden="true" />
         </button>
-        <button
-          className="send-button"
-          type="submit"
-          aria-label="Send message"
-          disabled={!canSend}
-        >
-          <span aria-hidden="true" className="arrow-up" />
-        </button>
+        {isSending ? (
+          <button
+            className="stop-button"
+            type="button"
+            aria-label="Stop streaming"
+            title="Stop streaming"
+            onClick={onStopStreaming}
+          >
+            <span aria-hidden="true" className="stop-icon" />
+          </button>
+        ) : (
+          <button
+            className="send-button"
+            type="submit"
+            aria-label="Send message"
+            disabled={!canSend}
+          >
+            <span aria-hidden="true" className="arrow-up" />
+          </button>
+        )}
       </form>
     </div>
   );

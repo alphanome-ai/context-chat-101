@@ -3,12 +3,12 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.core.chat.context import ChatContextManager
 from app.core.chat.schemas import ChatRunRequest
 from app.core.logging import get_app_logger
 from app.core.llm import get_llm_registry
 from app.core.llm.registry import LLMRegistry
 from app.core.llm.schemas import ChatCompletionChunk, ChatCompletionResponse, InferenceRequest
+from app.core.services.context import ChatContextManager
 
 logger = get_app_logger()
 

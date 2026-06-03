@@ -114,30 +114,27 @@ class OpenAIModelAdapter(BaseChatModel):
     def _raise_model_error(self, exc: Exception, *, model: str, streaming: bool) -> NoReturn:
         prefix = "llm_stream" if streaming else "llm"
         if isinstance(exc, openai.RateLimitError):
-            logger.warning(f"{prefix}_rate_limited", extra={"model": model, "error": str(exc)})
+            logger.bind(model=model, error=str(exc)).warning(f"{prefix}_rate_limited")
             raise LLMModelError(str(exc), error_code="RATE_LIMITED", status_code=429) from exc
         if isinstance(exc, openai.AuthenticationError):
-            logger.error(f"{prefix}_auth_error", extra={"model": model, "error": str(exc)})
+            logger.bind(model=model, error=str(exc)).error(f"{prefix}_auth_error")
             raise LLMModelError(
                 str(exc), error_code="UPSTREAM_AUTH_ERROR", status_code=502
             ) from exc
         if isinstance(exc, openai.APIConnectionError):
-            logger.error(f"{prefix}_connection_error", extra={"model": model, "error": str(exc)})
+            logger.bind(model=model, error=str(exc)).error(f"{prefix}_connection_error")
             raise LLMModelError(
                 f"Failed to connect to upstream LLM: {exc}",
                 error_code="SERVICE_UNAVAILABLE",
                 status_code=503,
             ) from exc
         if isinstance(exc, openai.APIStatusError):
-            logger.warning(
-                f"{prefix}_api_status_error",
-                extra={
-                    "model": model,
-                    "status_code": exc.status_code,
-                    "error": str(exc),
-                },
-            )
+            logger.bind(
+                model=model,
+                status_code=exc.status_code,
+                error=str(exc),
+            ).warning(f"{prefix}_api_status_error")
             self._raise_api_status_error(exc)
 
-        logger.exception(f"{prefix}_unexpected_error", extra={"model": model})
+        logger.bind(model=model).exception(f"{prefix}_unexpected_error")
         raise LLMModelError(str(exc), error_code="UPSTREAM_ERROR", status_code=502) from exc

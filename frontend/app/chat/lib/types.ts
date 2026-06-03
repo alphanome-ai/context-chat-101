@@ -1,6 +1,7 @@
 import type { z } from "zod";
 
 import type {
+  AgentEvent,
   chatSessionSummarySchema,
   errorResponseSchema,
   userSchema,
@@ -11,6 +12,7 @@ export type Message = {
   role: "user" | "assistant";
   content: string;
   thinking?: string;
+  events?: AgentEvent[];
   tokenUsage?: TokenUsage;
   status?: "pending" | "streaming" | "error";
 };
@@ -29,7 +31,7 @@ export type HtmlPreview = {
 export type ProviderStatus = "checking" | "online" | "offline";
 export type Theme = "light" | "dark";
 export type AuthMode = "login" | "register";
-export type ChatMode = "chat" | "agent";
+export type ChatMode = "chat" | "agent0" | "agent1";
 export type PickerMenu = "mode" | "model";
 
 export type LlmOption = {

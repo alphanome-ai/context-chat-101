@@ -31,6 +31,12 @@ class JsonlTranscriptStore:
         return transcript_path
 
 
+def _chat_session_transcript_service(chat_session: ChatSession) -> str:
+    if chat_session.mode in {"agent0", "agent1"}:
+        return chat_session.mode
+    return "chat"
+
+
 async def append_chat_session_messages_jsonl(
     chat_session: ChatSession,
     messages: Sequence[ChatMessage],
@@ -49,6 +55,7 @@ async def append_chat_session_messages_jsonl(
             "role": message.role,
             "content": message.content,
             "thinking": message.thinking,
+            "events": message.events,
             "input_tokens": message.input_tokens,
             "output_tokens": message.output_tokens,
             "total_tokens": message.total_tokens,
@@ -57,7 +64,7 @@ async def append_chat_session_messages_jsonl(
         for message in messages
     ]
     return await transcript_store.append_records(
-        service="chat",
+        service=_chat_session_transcript_service(chat_session),
         session_id=chat_session.id,
         records=records,
     )

@@ -1,7 +1,6 @@
-from app.core.chat.context import ChatContextManager
-from app.core.chat.errors import ChatContextError
 from app.core.chat.schemas import ChatRunRequest
 from app.core.chat.service import ChatRunResult, ChatService, ChatStreamResult
+from app.core.services.context import ChatContextError, ChatContextManager
 
 __all__ = [
     "ChatContextError",

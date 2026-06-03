@@ -27,16 +27,15 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
         try:
             response = await call_next(request)
-            process_time_ms = (time.perf_counter() - started_at) * 1000
+            process_time_s = time.perf_counter() - started_at
             response.headers["X-Request-ID"] = request_id
-            response.headers["X-Process-Time-Ms"] = f"{process_time_ms:.2f}"
-            logger.info(
-                "%s %s -> %s %.2fms",
-                request.method,
-                request.url.path,
-                response.status_code,
-                process_time_ms,
-            )
+            response.headers["X-Process-Time-Ms"] = f"{process_time_s * 1000:.2f}"
+            logger.bind(
+                method=request.method,
+                path=request.url.path,
+                status_code=response.status_code,
+                elapsed_s=f"{process_time_s:.3f}",
+            ).info("api_request")
             return response
         finally:
             traceparent_ctx_var.reset(traceparent_token)

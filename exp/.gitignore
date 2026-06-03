@@ -1,0 +1,15 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual environments and local caches
+.venv/
+.uv-cache/

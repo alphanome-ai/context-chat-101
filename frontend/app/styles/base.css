@@ -41,6 +41,7 @@ select:focus-visible {
 .icon-button,
 .back-button,
 .send-button,
+.stop-button,
 .new-chat-button,
 .theme-toggle,
 .starter-chip {

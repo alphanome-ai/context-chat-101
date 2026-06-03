@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
-    log_level: str = "INFO"
+    log_level: str = "DEBUG"
     cors_origins: list[str] = Field(default_factory=list)
     trusted_hosts: list[str] = Field(default_factory=lambda: ["*"])
 
@@ -34,6 +34,25 @@ class Settings(BaseSettings):
     llm_base_url: str = ""
     llm_api_key: str = ""
 
+    agent0_llm_base_url: str = ""
+    agent0_llm_api_key: str = ""
+    agent0_model: str = ""
+    agent0_recovery_llm_base_url: str = ""
+    agent0_recovery_llm_api_key: str = ""
+    agent0_recovery_model: str = ""
+    agent1_llm_base_url: str = ""
+    agent1_llm_api_key: str = ""
+    agent1_model: str = ""
+    agent1_recovery_llm_base_url: str = ""
+    agent1_recovery_llm_api_key: str = ""
+    agent1_recovery_model: str = ""
+    tavily_api_key: str = ""
+    mem0_api_key: str = ""
+    mem0_host: str = "https://api.mem0.ai"
+    mem0_top_k: int = 5
+    supermemory_api_key: str = ""
+    supermemory_profile_threshold: float | None = 0.7
+
     @field_validator("debug", mode="before")
     @classmethod
     def parse_bool(cls, value: object) -> object:
@@ -41,7 +60,15 @@ class Settings(BaseSettings):
             normalized = value.strip().lower()
             if normalized in {"1", "true", "yes", "on", "debug"}:
                 return True
-            if normalized in {"0", "false", "no", "off", "release", "prod", "production"}:
+            if normalized in {
+                "0",
+                "false",
+                "no",
+                "off",
+                "release",
+                "prod",
+                "production",
+            }:
                 return False
         return value
 
@@ -54,7 +81,9 @@ class Settings(BaseSettings):
                 try:
                     decoded = json.loads(normalized)
                     if isinstance(decoded, list):
-                        return [str(item).strip() for item in decoded if str(item).strip()]
+                        return [
+                            str(item).strip() for item in decoded if str(item).strip()
+                        ]
                 except json.JSONDecodeError:
                     pass
             return [item.strip() for item in normalized.split(",") if item.strip()]

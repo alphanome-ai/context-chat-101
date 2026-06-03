@@ -27,6 +27,9 @@
   --send-hover: #000000;
   --send-text: #ffffff;
   --send-disabled: #d7d7dd;
+  --stop-bg: #b42318;
+  --stop-hover: #912018;
+  --stop-text: #ffffff;
   --focus-ring: #303039;
   --toggle-track: #eef0f3;
   --toggle-track-hover: #e5e7eb;
@@ -70,6 +73,9 @@
   --send-hover: #ffffff;
   --send-text: #111318;
   --send-disabled: #3b404b;
+  --stop-bg: #f97066;
+  --stop-hover: #f04438;
+  --stop-text: #111318;
   --focus-ring: #cbd5e1;
   --toggle-track: #272b33;
   --toggle-track-hover: #303540;
